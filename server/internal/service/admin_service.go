@@ -3,8 +3,10 @@ package service
 import (
 	"context"
 	"fmt"
+	"mime/multipart"
 	"strings"
 
+	"github.com/xianlin-network/sso-platform/server/internal/config"
 	"github.com/xianlin-network/sso-platform/server/internal/model"
 	"github.com/xianlin-network/sso-platform/server/internal/pkg/security"
 	"github.com/xianlin-network/sso-platform/server/internal/repository"
@@ -13,6 +15,7 @@ import (
 type CreateClientInput struct {
 	Name         string   `json:"name"`
 	Description  string   `json:"description"`
+	IconURL      string   `json:"icon_url"`
 	ClientID     string   `json:"client_id"`
 	ClientType   string   `json:"client_type"`
 	RedirectURIs []string `json:"redirect_uris"`
@@ -23,6 +26,7 @@ type CreateClientInput struct {
 type UpdateClientInput struct {
 	Name         string   `json:"name"`
 	Description  string   `json:"description"`
+	IconURL      string   `json:"icon_url"`
 	RedirectURIs []string `json:"redirect_uris"`
 	Scopes       []string `json:"scopes"`
 	Trusted      bool     `json:"trusted"`
@@ -46,10 +50,65 @@ type UpdateUserInput struct {
 
 type AdminService struct {
 	store *repository.Store
+	cfg   config.Config
 }
 
-func NewAdminService(store *repository.Store) *AdminService {
-	return &AdminService{store: store}
+const settingPlatformName = "platform_name"
+
+func NewAdminService(store *repository.Store, cfg config.Config) *AdminService {
+	return &AdminService{store: store, cfg: cfg}
+}
+
+func (service *AdminService) EnsureDefaults(ctx context.Context) error {
+	setting, err := service.store.FindPlatformSetting(ctx, settingPlatformName)
+	if err != nil {
+		return err
+	}
+	if setting != nil && strings.TrimSpace(setting.Value) != "" {
+		return nil
+	}
+	return service.store.SavePlatformSetting(ctx, &model.PlatformSetting{
+		Key:   settingPlatformName,
+		Value: strings.TrimSpace(service.cfg.AppName),
+	})
+}
+
+func (service *AdminService) PublicSettings(ctx context.Context) (map[string]any, error) {
+	platformName, err := service.PlatformName(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"platform_name": platformName,
+	}, nil
+}
+
+func (service *AdminService) PlatformName(ctx context.Context) (string, error) {
+	setting, err := service.store.FindPlatformSetting(ctx, settingPlatformName)
+	if err != nil {
+		return "", err
+	}
+	if setting == nil || strings.TrimSpace(setting.Value) == "" {
+		return strings.TrimSpace(service.cfg.AppName), nil
+	}
+	return strings.TrimSpace(setting.Value), nil
+}
+
+func (service *AdminService) UpdatePlatformName(ctx context.Context, value string) (map[string]any, error) {
+	platformName := strings.TrimSpace(value)
+	if platformName == "" {
+		return nil, fmt.Errorf("%w: 平台名称不能为空", ErrInvalidInput)
+	}
+	setting := &model.PlatformSetting{
+		Key:   settingPlatformName,
+		Value: platformName,
+	}
+	if err := service.store.SavePlatformSetting(ctx, setting); err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"platform_name": platformName,
+	}, nil
 }
 
 func (service *AdminService) Overview(ctx context.Context) (repository.Overview, error) {
@@ -62,10 +121,24 @@ func (service *AdminService) ListClients(ctx context.Context) ([]map[string]any,
 		return nil, err
 	}
 	items := make([]map[string]any, 0, len(clients))
-	for _, client := range clients {
+	for index := range clients {
+		client := clients[index]
+		resolvedIconURL, err := SyncClientIconURL(ctx, service.cfg, client.ID, client.IconURL)
+		if err == nil && resolvedIconURL != client.IconURL {
+			client.IconURL = resolvedIconURL
+			_ = service.store.SaveClient(ctx, &client)
+		}
 		items = append(items, clientResponse(client, ""))
 	}
 	return items, nil
+}
+
+func (service *AdminService) UploadClientIcon(ctx context.Context, fileHeader *multipart.FileHeader) (map[string]any, error) {
+	iconURL, err := StoreUploadedClientIcon(ctx, service.cfg, fileHeader)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"icon_url": iconURL}, nil
 }
 
 func (service *AdminService) CreateClient(ctx context.Context, actor *model.User, input CreateClientInput) (map[string]any, error) {
@@ -109,6 +182,11 @@ func (service *AdminService) CreateClient(ctx context.Context, actor *model.User
 		Trusted:     input.Trusted,
 		CreatedBy:   actor.ID,
 	}
+	iconURL, err := NormalizeClientIconURL(ctx, service.cfg, client.ID, input.IconURL)
+	if err != nil {
+		return nil, err
+	}
+	client.IconURL = iconURL
 	client.SetRedirectURIs(input.RedirectURIs)
 	client.SetScopes(scopes)
 
@@ -150,6 +228,11 @@ func (service *AdminService) UpdateClient(ctx context.Context, id string, input 
 	}
 	client.Name = name
 	client.Description = strings.TrimSpace(input.Description)
+	iconURL, err := NormalizeClientIconURL(ctx, service.cfg, client.ID, input.IconURL)
+	if err != nil {
+		return nil, err
+	}
+	client.IconURL = iconURL
 	client.Trusted = input.Trusted
 	client.SetRedirectURIs(input.RedirectURIs)
 	client.SetScopes(scopes)
@@ -157,6 +240,32 @@ func (service *AdminService) UpdateClient(ctx context.Context, id string, input 
 		return nil, err
 	}
 	return clientResponse(*client, ""), nil
+}
+
+func (service *AdminService) DeleteClient(ctx context.Context, id string) error {
+	client, err := service.store.FindClientByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if client == nil {
+		return ErrNotFound
+	}
+	if err := service.store.DeleteAuthorizationCodesByClientID(ctx, client.ClientID); err != nil {
+		return err
+	}
+	if err := service.store.DeleteRefreshTokensByClientID(ctx, client.ClientID); err != nil {
+		return err
+	}
+	if err := service.store.DeleteAccessTokensByClientID(ctx, client.ClientID); err != nil {
+		return err
+	}
+	if err := service.store.DeleteClient(ctx, id); err != nil {
+		return err
+	}
+	if err := DeleteClientIconFiles(service.cfg, client.ID); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (service *AdminService) ListUsers(ctx context.Context) ([]map[string]any, error) {
@@ -242,11 +351,38 @@ func (service *AdminService) UpdateUser(ctx context.Context, id string, input Up
 	return userResponse(*user), nil
 }
 
+func (service *AdminService) DeleteUser(ctx context.Context, actor *model.User, id string) error {
+	user, err := service.store.FindUserByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return ErrNotFound
+	}
+	if actor != nil && actor.ID == user.ID {
+		return fmt.Errorf("%w: 不能删除当前登录用户", ErrInvalidInput)
+	}
+	if err := service.store.DeleteAuthorizationCodesByUserID(ctx, user.ID); err != nil {
+		return err
+	}
+	if err := service.store.DeleteRefreshTokensByUserID(ctx, user.ID); err != nil {
+		return err
+	}
+	if err := service.store.DeleteAccessTokensByUserID(ctx, user.ID); err != nil {
+		return err
+	}
+	if err := service.store.DeleteSessionsByUserID(ctx, user.ID); err != nil {
+		return err
+	}
+	return service.store.DeleteUser(ctx, id)
+}
+
 func clientResponse(client model.OAuthClient, rawSecret string) map[string]any {
 	return map[string]any{
 		"id":            client.ID,
 		"name":          client.Name,
 		"description":   client.Description,
+		"icon_url":      client.IconURL,
 		"client_id":     client.ClientID,
 		"client_type":   client.ClientType,
 		"redirect_uris": client.RedirectURIs(),

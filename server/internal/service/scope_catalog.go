@@ -12,11 +12,11 @@ type ScopeDefinition struct {
 }
 
 var scopeCatalog = []ScopeDefinition{
-	{Key: "openid", Label: "OpenID", Description: "Authenticate the user and issue an ID token."},
-	{Key: "profile", Label: "Profile", Description: "Read basic account profile."},
-	{Key: "email", Label: "Email", Description: "Read account email."},
-	{Key: "roles", Label: "Roles", Description: "Read role information."},
-	{Key: "offline_access", Label: "Offline Access", Description: "Issue refresh tokens for long-lived sessions."},
+	{Key: "openid", Label: "身份认证", Description: "用于标识本次请求需要 OIDC 身份认证能力，并返回身份令牌。"},
+	{Key: "profile", Label: "基础资料", Description: "读取账号基础资料，例如用户名与显示名称。"},
+	{Key: "email", Label: "邮箱信息", Description: "读取账号绑定邮箱。"},
+	{Key: "roles", Label: "角色信息", Description: "读取账号角色。"},
+	{Key: "offline_access", Label: "离线访问", Description: "允许签发刷新令牌，以便后续免登录续签。"},
 }
 
 func DefaultScopes() []string {

@@ -25,6 +25,7 @@ export interface OAuthClientRecord {
   id: string
   name: string
   description: string
+  icon_url: string
   client_id: string
   client_type: 'public' | 'confidential'
   redirect_uris: string[]
@@ -37,16 +38,6 @@ export interface OAuthClientRecord {
 }
 
 export interface UserRecord extends UserSummary {}
-
-export interface SessionRecord {
-  id: string
-  ip_address: string
-  user_agent: string
-  last_seen_at: string
-  expires_at: string
-  revoked_at?: string | null
-  current: boolean
-}
 
 export interface TokenRecord {
   id: string
@@ -67,6 +58,7 @@ export interface AuthorizationPreview {
     id: string
     name: string
     description: string
+    icon_url: string
     client_id: string
     redirect_uri: string
     client_type: string

@@ -8,34 +8,27 @@ import {
   NLayoutHeader,
   NLayoutSider,
   NMenu,
-  NSelect,
+  NSpin,
   NSpace,
+  NTag,
   NText,
   useMessage,
 } from 'naive-ui'
-import type { MenuOption, SelectOption } from 'naive-ui'
+import type { MenuOption } from 'naive-ui'
 import { computed, shallowRef, watch } from 'vue'
-import { RouterView, useRoute, useRouter } from 'vue-router'
+import { RouterView, useRouter } from 'vue-router'
 
-import { useThemeMode } from '@/composables/useThemeMode'
 import { useViewport } from '@/composables/useViewport'
+import { usePlatformStore } from '@/stores/platform'
 import { useSessionStore } from '@/stores/session'
 
-const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const sessionStore = useSessionStore()
+const platformStore = usePlatformStore()
 const mobileMenuOpen = shallowRef(false)
 const { isMobile, width } = useViewport()
-const { preference, effectiveMode, osTheme } = useThemeMode()
-
-const routeCopy: Record<string, { title: string; subtitle: string }> = {
-  dashboard: { title: '系统总览', subtitle: '查看运行状态。' },
-  clients: { title: '客户端管理', subtitle: '维护应用与 scope。' },
-  users: { title: '用户管理', subtitle: '管理账号与角色。' },
-  sessions: { title: '会话管理', subtitle: '管理登录会话。' },
-  tokens: { title: '令牌控制', subtitle: '查看与吊销令牌。' },
-}
+void platformStore.ensureLoaded().catch(() => {})
 
 const isAdmin = computed(() => sessionStore.user?.role === 'admin')
 
@@ -47,34 +40,23 @@ const menuOptions = computed<MenuOption[]>(() => {
       { label: '总览', key: 'dashboard' },
       { label: '客户端', key: 'clients' },
       { label: '用户', key: 'users' },
+      { label: '设置', key: 'settings' },
     )
   }
 
-  items.push(
-    { label: '会话', key: 'sessions' },
-    { label: '令牌', key: 'tokens' },
-  )
+	items.push(
+		{ label: '令牌', key: 'tokens' },
+		{ label: '连接信息', key: 'connection-info' },
+	)
 
   return items
 })
 
-const selectedKey = computed(() => String(route.name ?? 'dashboard'))
-const currentPage = computed(() => routeCopy[selectedKey.value] ?? routeCopy.dashboard)
-const mobileDrawerWidth = computed(() => Math.min(280, Math.max(220, width.value - 24)))
-
-const themeOptions: SelectOption[] = [
-  { label: '跟随系统', value: 'system' },
-  { label: '浅色', value: 'light' },
-  { label: '深色', value: 'dark' },
-]
-
-const themeHint = computed(() => {
-  if (preference.value === 'system') {
-    return `系统：${osTheme.value === 'dark' ? '深色' : '浅色'}`
-  }
-
-  return `当前：${effectiveMode.value === 'dark' ? '深色' : '浅色'}`
+const selectedKey = computed(() => {
+  const currentRoute = router.currentRoute.value
+  return String(currentRoute.name ?? 'dashboard')
 })
+const mobileDrawerWidth = computed(() => Math.min(280, Math.max(220, width.value - 24)))
 
 watch(isMobile, (nextIsMobile) => {
   if (!nextIsMobile) {
@@ -95,25 +77,22 @@ async function handleNavigate(key: string) {
 </script>
 
 <template>
-  <NLayout class="page-shell admin-layout" :has-sider="!isMobile">
-    <NLayoutSider v-if="!isMobile" bordered :width="220">
+  <NLayout class="page-shell admin-layout main-layout" :has-sider="!isMobile" position="absolute">
+    <NLayoutSider v-if="!isMobile" bordered :width="220" class="admin-sider">
+      <div class="sider-brand">
+        <NText depth="3">{{ platformStore.displayName }}</NText>
+      </div>
       <NMenu :value="selectedKey" :options="menuOptions" @update:value="(key) => handleNavigate(String(key))" />
     </NLayoutSider>
 
-    <NLayout>
+    <NLayout class="admin-content-layout content-layout">
       <NLayoutHeader bordered class="admin-header">
-        <div>
-          <NText depth="3">XLNetAccount</NText>
-          <div class="admin-title">{{ currentPage.title }}</div>
-          <div class="admin-subtitle">{{ currentPage.subtitle }}</div>
-        </div>
-
-        <NSpace align="center" :wrap="true">
-          <NText depth="3">{{ themeHint }}</NText>
-          <NSelect v-model:value="preference" :options="themeOptions" size="small" class="theme-select" />
+        <div class="header-spacer"></div>
+        <NSpace align="center" :wrap="true" class="header-actions">
           <NButton v-if="isMobile" secondary @click="mobileMenuOpen = true">
             菜单
           </NButton>
+          <NTag size="small" round type="info">{{ sessionStore.user?.role ?? 'user' }}</NTag>
           <NText depth="3">{{ sessionStore.user?.display_name ?? sessionStore.user?.username }}</NText>
           <NButton tertiary type="error" @click="handleLogout">
             退出
@@ -121,13 +100,28 @@ async function handleNavigate(key: string) {
         </NSpace>
       </NLayoutHeader>
 
-      <NLayoutContent content-style="padding: 16px;">
-        <RouterView />
+      <NLayoutContent class="content-body">
+        <RouterView v-slot="{ Component, route: currentRoute }">
+          <transition name="fade-slide" mode="out-in">
+            <div v-if="Component" :key="currentRoute.path" class="route-container page-container">
+              <Suspense>
+                <template #default>
+                  <component :is="Component" />
+                </template>
+                <template #fallback>
+                  <div class="route-loading">
+                    <NSpin size="medium" />
+                  </div>
+                </template>
+              </Suspense>
+            </div>
+          </transition>
+        </RouterView>
       </NLayoutContent>
     </NLayout>
 
     <NDrawer v-model:show="mobileMenuOpen" placement="left" :width="mobileDrawerWidth">
-      <NDrawerContent title="XLNetAccount" body-content-style="padding: 0;" closable>
+      <NDrawerContent :title="platformStore.displayName" body-content-style="padding: 0;" closable>
         <NMenu :value="selectedKey" :options="menuOptions" @update:value="(key) => handleNavigate(String(key))" />
       </NDrawerContent>
     </NDrawer>
@@ -140,32 +134,97 @@ async function handleNavigate(key: string) {
   min-height: 100dvh;
 }
 
+.admin-layout :deep(.n-layout-scroll-container) {
+  min-height: 100%;
+}
+
+.admin-sider {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.sider-brand {
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 20px;
+  border-bottom: 1px solid #29292c;
+}
+
+.admin-content-layout {
+  min-width: 0;
+}
+
+.content-layout {
+  background: #101014;
+}
+
 .admin-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 12px 16px;
+  height: 56px;
+  padding: 0 20px;
 }
 
-.admin-title {
-  margin-top: 4px;
-  font-size: 22px;
-  font-weight: 600;
+.header-spacer {
+  flex: 1 1 auto;
 }
 
-.admin-subtitle {
-  margin-top: 4px;
-  opacity: 0.72;
+.header-actions {
+  justify-content: flex-end;
 }
 
-.theme-select {
-  width: 120px;
+.content-body {
+  height: calc(100vh - 56px);
+  height: calc(100dvh - 56px);
+  padding: 24px 28px 28px;
+  overflow: auto;
 }
 
-@media (max-width: 820px) {
+.route-container {
+  width: 100%;
+  min-height: 100%;
+}
+
+.route-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+}
+
+.fade-slide-enter-active {
+  transition: all 0.3s ease-out;
+}
+
+.fade-slide-leave-active {
+  transition: all 0.25s ease-in;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+
+@media (max-width: 900px) {
   .admin-header {
     align-items: flex-start;
+    height: auto;
+    min-height: 56px;
+    padding: 12px 16px;
+  }
+
+  .content-body {
+    height: calc(100vh - 56px);
+    height: calc(100dvh - 56px);
+    padding: 16px;
   }
 }
 </style>

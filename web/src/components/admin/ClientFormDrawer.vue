@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  NAvatar,
   NButton,
   NCheckbox,
   NCheckboxGroup,
@@ -11,11 +12,16 @@ import {
   NSelect,
   NSpace,
   NSwitch,
+  NText,
+  NUpload,
   useMessage,
 } from 'naive-ui'
-import { computed, reactive, watch } from 'vue'
+import type { UploadCustomRequestOptions } from 'naive-ui'
+import { computed, onBeforeUnmount, reactive, shallowRef, watch } from 'vue'
 
-import { createClient, updateClient } from '@/api/admin'
+import { createClient, updateClient, uploadClientIcon } from '@/api/admin'
+import { ApiError } from '@/api/http'
+import { getServerBaseUrl } from '@/config/endpoints'
 import { defaultScopeKeys, scopeOptions } from '@/constants/scopes'
 import { useViewport } from '@/composables/useViewport'
 import type { OAuthClientRecord } from '@/types/api'
@@ -32,10 +38,14 @@ const isSaving = defineModel<boolean>('saving', { default: false })
 const message = useMessage()
 const { width } = useViewport()
 const drawerWidth = computed(() => Math.min(520, Math.max(300, width.value - 16)))
+const isUploadingIcon = shallowRef(false)
+const localPreviewUrl = shallowRef('')
+const previewLoadFailed = shallowRef(false)
 
 const formState = reactive({
   name: '',
   description: '',
+  iconUrl: '',
   clientId: '',
   clientType: 'public',
   redirectUris: '',
@@ -44,6 +54,24 @@ const formState = reactive({
 })
 
 const isEditing = computed(() => Boolean(props.initialClient?.id))
+const previewIconUrl = computed(() => {
+  if (localPreviewUrl.value) {
+    return localPreviewUrl.value
+  }
+
+  const raw = formState.iconUrl.trim()
+  if (!raw) {
+    return ''
+  }
+
+  if (/^https?:\/\//i.test(raw) || raw.startsWith('blob:') || raw.startsWith('data:')) {
+    return raw
+  }
+
+  const baseUrl = getServerBaseUrl()
+  return new URL(raw.replace(/^\/+/, '/'), `${baseUrl}/`).toString()
+})
+const previewInitial = computed(() => (formState.name.trim().charAt(0) || 'C').toUpperCase())
 
 watch(
   () => [show.value, props.initialClient] as const,
@@ -54,6 +82,7 @@ watch(
 
     formState.name = props.initialClient?.name ?? ''
     formState.description = props.initialClient?.description ?? ''
+    formState.iconUrl = props.initialClient?.icon_url ?? ''
     formState.clientId = props.initialClient?.client_id ?? ''
     formState.clientType = props.initialClient?.client_type ?? 'public'
     formState.redirectUris = props.initialClient?.redirect_uris.join('\n') ?? ''
@@ -61,9 +90,19 @@ watch(
       ? [...props.initialClient.scopes]
       : [...defaultScopeKeys]
     formState.trusted = props.initialClient?.trusted ?? false
+    previewLoadFailed.value = false
+    resetLocalPreview()
   },
   { immediate: true },
 )
+
+watch(() => formState.iconUrl, () => {
+  previewLoadFailed.value = false
+})
+
+onBeforeUnmount(() => {
+  resetLocalPreview()
+})
 
 async function handleSubmit() {
   isSaving.value = true
@@ -71,6 +110,7 @@ async function handleSubmit() {
   const payload = {
     name: formState.name,
     description: formState.description,
+    icon_url: formState.iconUrl,
     client_id: formState.clientId,
     client_type: formState.clientType,
     redirect_uris: splitByLine(formState.redirectUris),
@@ -98,6 +138,45 @@ function splitByLine(value: string) {
     .map(item => item.trim())
     .filter(Boolean)
 }
+
+async function handleIconUpload(options: UploadCustomRequestOptions) {
+	const file = options.file.file
+	if (!(file instanceof File)) {
+		options.onError?.()
+		message.error('无法读取上传文件')
+		return
+	}
+
+	isUploadingIcon.value = true
+	setLocalPreview(file)
+
+	try {
+		const result = await uploadClientIcon(file)
+		formState.iconUrl = result.icon_url
+		message.success('图标已上传')
+		options.onFinish?.()
+	}
+	catch (error) {
+		message.error(error instanceof ApiError ? error.message : '上传图标失败')
+		options.onError?.()
+	}
+	finally {
+		isUploadingIcon.value = false
+	}
+}
+
+function setLocalPreview(file: File) {
+  resetLocalPreview()
+  localPreviewUrl.value = URL.createObjectURL(file)
+  previewLoadFailed.value = false
+}
+
+function resetLocalPreview() {
+  if (localPreviewUrl.value) {
+    URL.revokeObjectURL(localPreviewUrl.value)
+  }
+  localPreviewUrl.value = ''
+}
 </script>
 
 <template>
@@ -106,6 +185,40 @@ function splitByLine(value: string) {
       <NForm label-placement="top">
         <NFormItem label="客户端名称">
           <NInput v-model:value="formState.name" placeholder="例如：XLNet Console" />
+        </NFormItem>
+
+        <NFormItem label="图标地址">
+          <NSpace vertical :size="10" style="width: 100%;">
+            <NInput v-model:value="formState.iconUrl" placeholder="https://example.com/icon.png" />
+            <NUpload
+              accept="image/*"
+              :show-file-list="false"
+              :custom-request="handleIconUpload"
+            >
+              <NButton secondary :loading="isUploadingIcon">上传图标</NButton>
+            </NUpload>
+          </NSpace>
+        </NFormItem>
+
+        <NFormItem label="图标预览">
+          <div class="icon-preview">
+            <div class="icon-preview-avatar">
+              <img
+                v-if="previewIconUrl && !previewLoadFailed"
+                :src="previewIconUrl"
+                alt="客户端图标预览"
+                class="icon-preview-image"
+                @error="previewLoadFailed = true"
+              >
+              <NAvatar v-else :size="48" :round="false" class="icon-preview-fallback">
+                {{ previewInitial }}
+              </NAvatar>
+            </div>
+            <div class="icon-preview-meta">
+              <strong>{{ formState.name || '客户端预览' }}</strong>
+              <NText depth="3">支持远程地址与本地上传。</NText>
+            </div>
+          </div>
         </NFormItem>
 
         <NFormItem label="客户端 ID">
@@ -137,15 +250,15 @@ function splitByLine(value: string) {
         </NFormItem>
 
         <NFormItem label="允许 Scope">
-          <NCheckboxGroup v-model:value="formState.scopes" class="scope-grid">
-            <label v-for="scope in scopeOptions" :key="scope.key" class="scope-card">
-              <div class="scope-card-head">
+          <NCheckboxGroup v-model:value="formState.scopes">
+            <NSpace vertical size="small">
+              <div v-for="scope in scopeOptions" :key="scope.key" class="scope-option">
                 <NCheckbox :value="scope.key">
                   {{ scope.label }}
                 </NCheckbox>
+                <NText depth="3">{{ scope.description }}</NText>
               </div>
-              <p>{{ scope.description }}</p>
-            </label>
+            </NSpace>
           </NCheckboxGroup>
         </NFormItem>
 
@@ -176,36 +289,41 @@ function splitByLine(value: string) {
 </template>
 
 <style scoped>
-.scope-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.icon-preview {
+  display: flex;
+  align-items: center;
   gap: 12px;
 }
 
-.scope-card {
+.icon-preview-avatar {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.icon-preview-image {
+  display: block;
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.icon-preview-fallback {
+  background: rgba(52, 159, 244, 0.18);
+  color: #9fd6ff;
+}
+
+.icon-preview-meta {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  background: rgba(15, 23, 42, 0.56);
+  gap: 4px;
 }
 
-.scope-card-head {
+.scope-option {
   display: flex;
-  align-items: center;
-}
-
-.scope-card p {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.58);
-  line-height: 1.5;
-}
-
-@media (max-width: 680px) {
-  .scope-grid {
-    grid-template-columns: 1fr;
-  }
+  flex-direction: column;
+  gap: 4px;
 }
 </style>

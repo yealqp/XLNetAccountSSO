@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/xianlin-network/sso-platform/server/internal/http/middleware"
@@ -11,12 +12,11 @@ import (
 
 type AdminHandler struct {
 	adminService *service.AdminService
-	authService  *service.AuthService
 	tokenService *service.TokenService
 }
 
-func NewAdminHandler(adminService *service.AdminService, authService *service.AuthService, tokenService *service.TokenService) *AdminHandler {
-	return &AdminHandler{adminService: adminService, authService: authService, tokenService: tokenService}
+func NewAdminHandler(adminService *service.AdminService, tokenService *service.TokenService) *AdminHandler {
+	return &AdminHandler{adminService: adminService, tokenService: tokenService}
 }
 
 func (handler *AdminHandler) Overview(c *fiber.Ctx) error {
@@ -27,12 +27,42 @@ func (handler *AdminHandler) Overview(c *fiber.Ctx) error {
 	return c.JSON(overview)
 }
 
+func (handler *AdminHandler) PublicSettings(c *fiber.Ctx) error {
+	settings, err := handler.adminService.PublicSettings(context.Background())
+	if err != nil {
+		return writeError(c, fiber.StatusInternalServerError, "load public settings failed")
+	}
+	return c.JSON(settings)
+}
+
 func (handler *AdminHandler) Me(c *fiber.Ctx) error {
 	authContext, err := middleware.CurrentAuthContext(c)
 	if err != nil {
 		return writeError(c, fiber.StatusUnauthorized, "authentication required")
 	}
 	return c.JSON(fiber.Map{"user": publicUser(authContext.User)})
+}
+
+func (handler *AdminHandler) PlatformSettings(c *fiber.Ctx) error {
+	settings, err := handler.adminService.PublicSettings(context.Background())
+	if err != nil {
+		return writeError(c, fiber.StatusInternalServerError, "load platform settings failed")
+	}
+	return c.JSON(settings)
+}
+
+func (handler *AdminHandler) UpdatePlatformSettings(c *fiber.Ctx) error {
+	var input struct {
+		PlatformName string `json:"platform_name"`
+	}
+	if err := c.BodyParser(&input); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid settings payload")
+	}
+	settings, err := handler.adminService.UpdatePlatformName(context.Background(), input.PlatformName)
+	if err != nil {
+		return handleServiceError(c, err, "update platform settings failed")
+	}
+	return c.JSON(settings)
 }
 
 func (handler *AdminHandler) ListClients(c *fiber.Ctx) error {
@@ -56,6 +86,18 @@ func (handler *AdminHandler) CreateClient(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(client)
 }
 
+func (handler *AdminHandler) UploadClientIcon(c *fiber.Ctx) error {
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return writeError(c, fiber.StatusBadRequest, "请选择要上传的图标文件")
+	}
+	result, err := handler.adminService.UploadClientIcon(context.Background(), fileHeader)
+	if err != nil {
+		return handleServiceError(c, err, "upload client icon failed")
+	}
+	return c.Status(fiber.StatusCreated).JSON(result)
+}
+
 func (handler *AdminHandler) UpdateClient(c *fiber.Ctx) error {
 	var input service.UpdateClientInput
 	if err := c.BodyParser(&input); err != nil {
@@ -66,6 +108,14 @@ func (handler *AdminHandler) UpdateClient(c *fiber.Ctx) error {
 		return handleServiceError(c, err, "update client failed")
 	}
 	return c.JSON(client)
+}
+
+func (handler *AdminHandler) DeleteClient(c *fiber.Ctx) error {
+	err := handler.adminService.DeleteClient(context.Background(), c.Params("id"))
+	if err != nil {
+		return handleServiceError(c, err, "delete client failed")
+	}
+	return c.SendStatus(fiber.StatusNoContent)
 }
 
 func (handler *AdminHandler) ListUsers(c *fiber.Ctx) error {
@@ -100,20 +150,11 @@ func (handler *AdminHandler) UpdateUser(c *fiber.Ctx) error {
 	return c.JSON(user)
 }
 
-func (handler *AdminHandler) ListSessions(c *fiber.Ctx) error {
+func (handler *AdminHandler) DeleteUser(c *fiber.Ctx) error {
 	authContext, _ := middleware.CurrentAuthContext(c)
-	sessions, err := handler.authService.ListSessions(context.Background(), authContext.User, authContext.Session.ID)
+	err := handler.adminService.DeleteUser(context.Background(), authContext.User, c.Params("id"))
 	if err != nil {
-		return writeError(c, fiber.StatusInternalServerError, "load sessions failed")
-	}
-	return c.JSON(fiber.Map{"items": sessions})
-}
-
-func (handler *AdminHandler) RevokeSession(c *fiber.Ctx) error {
-	authContext, _ := middleware.CurrentAuthContext(c)
-	err := handler.authService.RevokeSession(context.Background(), authContext.User, authContext.Session.ID, c.Params("id"))
-	if err != nil {
-		return handleServiceError(c, err, "revoke session failed")
+		return handleServiceError(c, err, "delete user failed")
 	}
 	return c.SendStatus(fiber.StatusNoContent)
 }
@@ -157,24 +198,33 @@ func (handler *AdminHandler) RevokeClientTokens(c *fiber.Ctx) error {
 func handleServiceError(c *fiber.Ctx, err error, fallback string) error {
 	switch {
 	case errors.Is(err, service.ErrInvalidInput):
-		return writeError(c, fiber.StatusBadRequest, err.Error())
+		return writeError(c, fiber.StatusBadRequest, cleanServiceError(err, service.ErrInvalidInput))
 	case errors.Is(err, service.ErrConflict):
-		return writeError(c, fiber.StatusConflict, err.Error())
+		return writeError(c, fiber.StatusConflict, cleanServiceError(err, service.ErrConflict))
 	case errors.Is(err, service.ErrNotFound):
-		return writeError(c, fiber.StatusNotFound, err.Error())
+		return writeError(c, fiber.StatusNotFound, cleanServiceError(err, service.ErrNotFound))
 	case errors.Is(err, service.ErrForbidden):
-		return writeError(c, fiber.StatusForbidden, err.Error())
+		return writeError(c, fiber.StatusForbidden, cleanServiceError(err, service.ErrForbidden))
 	case errors.Is(err, service.ErrUnauthorized):
-		return writeError(c, fiber.StatusUnauthorized, err.Error())
+		return writeError(c, fiber.StatusUnauthorized, cleanServiceError(err, service.ErrUnauthorized))
 	case errors.Is(err, service.ErrInvalidGrant):
-		return writeError(c, fiber.StatusBadRequest, err.Error())
+		return writeError(c, fiber.StatusBadRequest, cleanServiceError(err, service.ErrInvalidGrant))
 	case errors.Is(err, service.ErrInvalidClient):
-		return writeError(c, fiber.StatusUnauthorized, err.Error())
+		return writeError(c, fiber.StatusUnauthorized, cleanServiceError(err, service.ErrInvalidClient))
 	case errors.Is(err, service.ErrInvalidToken):
-		return writeError(c, fiber.StatusUnauthorized, err.Error())
+		return writeError(c, fiber.StatusUnauthorized, cleanServiceError(err, service.ErrInvalidToken))
 	case errors.Is(err, service.ErrAccessDenied):
-		return writeError(c, fiber.StatusForbidden, err.Error())
+		return writeError(c, fiber.StatusForbidden, cleanServiceError(err, service.ErrAccessDenied))
 	default:
 		return writeError(c, fiber.StatusInternalServerError, fallback)
 	}
+}
+
+func cleanServiceError(err error, base error) string {
+	prefix := base.Error() + ": "
+	message := err.Error()
+	if strings.HasPrefix(message, prefix) {
+		return strings.TrimPrefix(message, prefix)
+	}
+	return message
 }

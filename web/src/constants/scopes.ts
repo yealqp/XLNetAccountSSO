@@ -7,28 +7,28 @@ export interface ScopeOption {
 export const scopeOptions: ScopeOption[] = [
   {
     key: 'openid',
-    label: 'OpenID',
-    description: '启用 OIDC 登录并签发 id token。',
+    label: '身份认证',
+    description: '启用 OIDC 登录并签发身份令牌。',
   },
   {
     key: 'profile',
-    label: 'Profile',
+    label: '基础资料',
     description: '读取账号基础信息。',
   },
   {
     key: 'email',
-    label: 'Email',
+    label: '邮箱信息',
     description: '读取账号邮箱。',
   },
   {
     key: 'roles',
-    label: 'Roles',
+    label: '角色信息',
     description: '读取账号角色。',
   },
   {
     key: 'offline_access',
-    label: 'Offline Access',
-    description: '允许签发 refresh token。',
+    label: '离线访问',
+    description: '允许签发刷新令牌。',
   },
 ]
 

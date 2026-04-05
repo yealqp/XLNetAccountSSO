@@ -7,25 +7,32 @@ import {
   NNotificationProvider,
   darkTheme,
 } from 'naive-ui'
-import { computed } from 'vue'
 import { RouterView } from 'vue-router'
 
-import { useThemeMode } from '@/composables/useThemeMode'
-
-const { effectiveMode } = useThemeMode()
-
-const theme = computed(() => (effectiveMode.value === 'dark' ? darkTheme : null))
+import { darkThemeOverrides } from '@/config/theme'
 </script>
 
 <template>
-  <NConfigProvider :theme="theme">
+  <NConfigProvider :theme="darkTheme" :theme-overrides="darkThemeOverrides">
     <NDialogProvider>
       <NNotificationProvider>
         <NMessageProvider>
           <NGlobalStyle />
-          <RouterView />
+          <div class="app-container">
+            <RouterView />
+          </div>
         </NMessageProvider>
       </NNotificationProvider>
     </NDialogProvider>
   </NConfigProvider>
 </template>
+
+<style scoped>
+.app-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+</style>

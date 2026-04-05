@@ -23,6 +23,7 @@ func main() {
 	if err := db.AutoMigrate(
 		&model.User{},
 		&model.OAuthClient{},
+		&model.PlatformSetting{},
 		&model.AuthorizationCode{},
 		&model.AccessToken{},
 		&model.RefreshToken{},

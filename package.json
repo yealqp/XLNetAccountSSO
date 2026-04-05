@@ -9,6 +9,7 @@
     "build:client": "pnpm --filter @sso/client-demo build",
     "docker:all": "docker compose up --build -d",
     "docker:web": "docker compose up --build -d web",
-    "docker:server": "docker compose up --build -d server"
+    "docker:server": "docker compose up --build -d server",
+    "docker:demo": "docker compose up --build -d client-demo"
   }
 }

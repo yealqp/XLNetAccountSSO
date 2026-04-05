@@ -12,6 +12,7 @@ type Config struct {
 	Port                   string
 	ServerBaseURL          string
 	WebBaseURL             string
+	AssetDir               string
 	OIDCIssuer             string
 	OIDCKeyID              string
 	OIDCPrivateKeyPEM      string
@@ -47,6 +48,7 @@ func Load() Config {
 		Port:                   getEnv("PORT", "8080"),
 		ServerBaseURL:          serverBaseURL,
 		WebBaseURL:             webBaseURL,
+		AssetDir:               getEnv("ASSET_DIR", "./data"),
 		OIDCIssuer:             strings.TrimRight(getEnv("OIDC_ISSUER", serverBaseURL), "/"),
 		OIDCKeyID:              getEnv("OIDC_KEY_ID", ""),
 		OIDCPrivateKeyPEM:      getEnv("OIDC_PRIVATE_KEY_PEM", ""),

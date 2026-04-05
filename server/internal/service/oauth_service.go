@@ -68,11 +68,16 @@ func (service *OAuthService) PreviewAuthorization(ctx context.Context, user *mod
 	if err != nil {
 		return nil, err
 	}
+	if resolvedIconURL, syncErr := SyncClientIconURL(ctx, service.cfg, client.ID, client.IconURL); syncErr == nil && resolvedIconURL != client.IconURL {
+		client.IconURL = resolvedIconURL
+		_ = service.store.SaveClient(ctx, client)
+	}
 	return map[string]any{
 		"client": map[string]any{
 			"id":                      client.ID,
 			"name":                    client.Name,
 			"description":             client.Description,
+			"icon_url":                client.IconURL,
 			"client_id":               client.ClientID,
 			"redirect_uri":            input.RedirectURI,
 			"client_type":             client.ClientType,
@@ -157,9 +162,6 @@ func (service *OAuthService) UserInfo(ctx context.Context, rawToken string) (map
 	if err != nil {
 		return nil, err
 	}
-	if !HasScope(accessToken.Scope, "openid") {
-		return nil, fmt.Errorf("%w: openid scope required for userinfo", ErrAccessDenied)
-	}
 	response := map[string]any{
 		"sub": user.ID,
 	}
@@ -224,7 +226,7 @@ func (service *OAuthService) DiscoveryMetadata() map[string]any {
 	return map[string]any{
 		"claims_supported":                              []string{"sub", "iss", "aud", "exp", "iat", "nonce", "preferred_username", "name", "email", "roles"},
 		"claim_types_supported":                         []string{"normal"},
-		"code_challenge_methods_supported":              []string{"S256"},
+		"code_challenge_methods_supported":              []string{"S256", "plain"},
 		"grant_types_supported":                         []string{"authorization_code", "refresh_token"},
 		"id_token_signing_alg_values_supported":         []string{"RS256"},
 		"introspection_endpoint":                        service.cfg.ServerBaseURL + "/oauth/introspect",
@@ -261,13 +263,25 @@ func (service *OAuthService) exchangeAuthorizationCode(ctx context.Context, inpu
 		return nil, ErrInvalidGrant
 	}
 	if code.ClientID != client.ClientID || code.RedirectURI != strings.TrimSpace(input.RedirectURI) {
-		return nil, ErrInvalidGrant
+		return nil, fmt.Errorf("%w: 授权码与客户端或回调地址不匹配", ErrInvalidGrant)
 	}
-	if strings.TrimSpace(input.CodeVerifier) == "" || security.S256CodeChallenge(strings.TrimSpace(input.CodeVerifier)) != code.CodeChallenge {
-		return nil, ErrInvalidGrant
-	}
-	if strings.TrimSpace(code.CodeChallengeMethod) != "S256" {
-		return nil, ErrInvalidGrant
+	if code.CodeChallenge != "" || strings.TrimSpace(code.CodeChallengeMethod) != "" {
+		codeVerifier := strings.TrimSpace(input.CodeVerifier)
+		if codeVerifier == "" {
+			return nil, fmt.Errorf("%w: 缺少 code_verifier", ErrInvalidGrant)
+		}
+		switch pkceMethod(code.CodeChallengeMethod) {
+		case "S256":
+			if security.S256CodeChallenge(codeVerifier) != code.CodeChallenge {
+				return nil, fmt.Errorf("%w: code_verifier 校验失败", ErrInvalidGrant)
+			}
+		case "plain":
+			if codeVerifier != code.CodeChallenge {
+				return nil, fmt.Errorf("%w: code_verifier 校验失败", ErrInvalidGrant)
+			}
+		default:
+			return nil, fmt.Errorf("%w: 不支持的 PKCE 校验方式", ErrInvalidGrant)
+		}
 	}
 	response, err := service.issueTokens(ctx, client.ClientID, code.UserID, code.Scope, code.Nonce, true)
 	if err != nil {
@@ -300,6 +314,18 @@ func (service *OAuthService) exchangeRefreshToken(ctx context.Context, input Tok
 	refreshToken.RevokedAt = &now
 	if err := service.store.SaveRefreshToken(ctx, refreshToken); err != nil {
 		return nil, err
+	}
+	if strings.TrimSpace(refreshToken.AccessTokenID) != "" {
+		accessToken, err := service.store.FindAccessTokenByID(ctx, refreshToken.AccessTokenID)
+		if err != nil {
+			return nil, err
+		}
+		if accessToken != nil && accessToken.RevokedAt == nil {
+			accessToken.RevokedAt = &now
+			if err := service.store.SaveAccessToken(ctx, accessToken); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return service.issueTokens(ctx, refreshToken.ClientID, refreshToken.UserID, refreshToken.Scope, "", false)
 }
@@ -410,13 +436,13 @@ func (service *OAuthService) validateClient(ctx context.Context, clientID string
 
 func (service *OAuthService) validateAuthorizationRequest(ctx context.Context, input AuthorizationRequest) (*model.OAuthClient, []string, error) {
 	if strings.TrimSpace(input.ResponseType) != "code" {
-		return nil, nil, ErrInvalidInput
+		return nil, nil, fmt.Errorf("%w: 仅支持 response_type=code", ErrInvalidInput)
 	}
-	if strings.TrimSpace(input.State) == "" || strings.TrimSpace(input.CodeChallenge) == "" || strings.TrimSpace(input.RedirectURI) == "" {
-		return nil, nil, ErrInvalidInput
+	if strings.TrimSpace(input.ClientID) == "" {
+		return nil, nil, fmt.Errorf("%w: 缺少 client_id", ErrInvalidInput)
 	}
-	if method := strings.TrimSpace(input.CodeChallengeMethod); method != "S256" {
-		return nil, nil, ErrInvalidInput
+	if strings.TrimSpace(input.RedirectURI) == "" {
+		return nil, nil, fmt.Errorf("%w: 缺少 redirect_uri", ErrInvalidInput)
 	}
 	client, err := service.store.FindClientByClientID(ctx, strings.TrimSpace(input.ClientID))
 	if err != nil {
@@ -425,8 +451,18 @@ func (service *OAuthService) validateAuthorizationRequest(ctx context.Context, i
 	if client == nil {
 		return nil, nil, ErrInvalidClient
 	}
+	if strings.TrimSpace(input.CodeChallenge) == "" && strings.TrimSpace(input.CodeChallengeMethod) != "" {
+		return nil, nil, fmt.Errorf("%w: 缺少 code_challenge", ErrInvalidInput)
+	}
+	if strings.TrimSpace(input.CodeChallenge) != "" {
+		method := pkceMethod(input.CodeChallengeMethod)
+		if method != "S256" && method != "plain" {
+			return nil, nil, fmt.Errorf("%w: 仅支持 PKCE S256 或 plain", ErrInvalidInput)
+		}
+		input.CodeChallengeMethod = method
+	}
 	if !contains(client.RedirectURIs(), input.RedirectURI) {
-		return nil, nil, ErrInvalidInput
+		return nil, nil, fmt.Errorf("%w: redirect_uri 未在客户端白名单中", ErrInvalidInput)
 	}
 	allowedScopes, err := NormalizeKnownScopes(client.Scopes())
 	if err != nil {
@@ -442,7 +478,7 @@ func (service *OAuthService) validateAuthorizationRequest(ctx context.Context, i
 	}
 	for _, requestedScope := range requestedScopes {
 		if len(allowedScopes) > 0 && !contains(allowedScopes, requestedScope) {
-			return nil, nil, ErrInvalidInput
+			return nil, nil, fmt.Errorf("%w: scope %s 未被客户端允许", ErrInvalidInput, requestedScope)
 		}
 	}
 	return client, requestedScopes, nil
@@ -527,6 +563,14 @@ func hasScopeList(scopes []string, required string) bool {
 		}
 	}
 	return false
+}
+
+func pkceMethod(method string) string {
+	trimmed := strings.TrimSpace(method)
+	if trimmed == "" {
+		return "plain"
+	}
+	return trimmed
 }
 
 func scopeKeys(definitions []ScopeDefinition) []string {

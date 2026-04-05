@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -161,50 +160,6 @@ func (service *AuthService) Logout(ctx context.Context, rawSessionToken string) 
 	}
 	service.logAudit(ctx, session.UserID, "auth.logout", session.ID, session.IPAddress, "")
 	return nil
-}
-
-func (service *AuthService) ListSessions(ctx context.Context, user *model.User, currentSessionID string) ([]map[string]any, error) {
-	sessions, err := service.store.ListSessionsByUser(ctx, user.ID)
-	if err != nil {
-		return nil, err
-	}
-	items := make([]map[string]any, 0, len(sessions))
-	for _, session := range sessions {
-		items = append(items, map[string]any{
-			"id":           session.ID,
-			"ip_address":   session.IPAddress,
-			"user_agent":   session.UserAgent,
-			"last_seen_at": session.LastSeenAt,
-			"expires_at":   session.ExpiresAt,
-			"revoked_at":   session.RevokedAt,
-			"current":      session.ID == currentSessionID,
-		})
-	}
-	return items, nil
-}
-
-func (service *AuthService) RevokeSession(ctx context.Context, actor *model.User, currentSessionID string, sessionID string) error {
-	sessions, err := service.store.ListSessionsByUser(ctx, actor.ID)
-	if err != nil {
-		return err
-	}
-	for index := range sessions {
-		session := sessions[index]
-		if session.ID != sessionID {
-			continue
-		}
-		if session.ID == currentSessionID {
-			return fmt.Errorf("%w: current session can be closed with logout", ErrInvalidInput)
-		}
-		now := time.Now().UTC()
-		session.RevokedAt = &now
-		if err := service.store.SaveSession(ctx, &session); err != nil {
-			return err
-		}
-		service.logAudit(ctx, actor.ID, "session.revoke", session.ID, session.IPAddress, "")
-		return nil
-	}
-	return ErrNotFound
 }
 
 func (service *AuthService) logAudit(ctx context.Context, actorID string, action string, target string, ipAddress string, metadata string) {

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { NCard, NText } from 'naive-ui'
+
 interface Props {
   label: string
   value: string | number
@@ -9,11 +11,13 @@ defineProps<Props>()
 </script>
 
 <template>
-  <article class="stat-panel">
-    <span class="stat-label">{{ label }}</span>
-    <strong class="stat-value">{{ value }}</strong>
-    <p class="stat-detail">{{ detail }}</p>
-  </article>
+  <NCard size="small">
+    <div class="stat-panel">
+      <NText depth="3">{{ label }}</NText>
+      <strong class="stat-value">{{ value }}</strong>
+      <NText depth="3">{{ detail }}</NText>
+    </div>
+  </NCard>
 </template>
 
 <style scoped>
@@ -21,26 +25,10 @@ defineProps<Props>()
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  background: rgba(17, 24, 39, 0.7);
-}
-
-.stat-label {
-  color: rgba(255, 255, 255, 0.58);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 12px;
 }
 
 .stat-value {
   font-size: 34px;
   line-height: 1;
-}
-
-.stat-detail {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.58);
 }
 </style>

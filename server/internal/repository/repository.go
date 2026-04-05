@@ -7,6 +7,7 @@ import (
 
 	"github.com/xianlin-network/sso-platform/server/internal/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Store struct {
@@ -53,6 +54,26 @@ func (store *Store) SaveUser(ctx context.Context, user *model.User) error {
 	return store.db.WithContext(ctx).Save(user).Error
 }
 
+func (store *Store) DeleteUser(ctx context.Context, id string) error {
+	return store.db.WithContext(ctx).Delete(&model.User{}, "id = ?", id).Error
+}
+
+func (store *Store) FindPlatformSetting(ctx context.Context, key string) (*model.PlatformSetting, error) {
+	var setting model.PlatformSetting
+	err := store.db.WithContext(ctx).Where("`key` = ?", key).First(&setting).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &setting, err
+}
+
+func (store *Store) SavePlatformSetting(ctx context.Context, setting *model.PlatformSetting) error {
+	return store.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "key"}},
+		DoUpdates: clause.AssignmentColumns([]string{"value", "updated_at"}),
+	}).Create(setting).Error
+}
+
 func (store *Store) FindClientByClientID(ctx context.Context, clientID string) (*model.OAuthClient, error) {
 	var client model.OAuthClient
 	err := store.db.WithContext(ctx).Where("client_id = ?", clientID).First(&client).Error
@@ -85,6 +106,10 @@ func (store *Store) SaveClient(ctx context.Context, client *model.OAuthClient) e
 	return store.db.WithContext(ctx).Save(client).Error
 }
 
+func (store *Store) DeleteClient(ctx context.Context, id string) error {
+	return store.db.WithContext(ctx).Delete(&model.OAuthClient{}, "id = ?", id).Error
+}
+
 func (store *Store) CreateSession(ctx context.Context, session *model.UserSession) error {
 	return store.db.WithContext(ctx).Create(session).Error
 }
@@ -98,14 +123,12 @@ func (store *Store) FindSessionByHash(ctx context.Context, hash string) (*model.
 	return &session, err
 }
 
-func (store *Store) ListSessionsByUser(ctx context.Context, userID string) ([]model.UserSession, error) {
-	var sessions []model.UserSession
-	err := store.db.WithContext(ctx).Where("user_id = ?", userID).Order("created_at desc").Find(&sessions).Error
-	return sessions, err
-}
-
 func (store *Store) SaveSession(ctx context.Context, session *model.UserSession) error {
 	return store.db.WithContext(ctx).Save(session).Error
+}
+
+func (store *Store) DeleteSessionsByUserID(ctx context.Context, userID string) error {
+	return store.db.WithContext(ctx).Delete(&model.UserSession{}, "user_id = ?", userID).Error
 }
 
 func (store *Store) CreateAuthorizationCode(ctx context.Context, code *model.AuthorizationCode) error {
@@ -123,6 +146,14 @@ func (store *Store) FindAuthorizationCodeByHash(ctx context.Context, hash string
 
 func (store *Store) SaveAuthorizationCode(ctx context.Context, code *model.AuthorizationCode) error {
 	return store.db.WithContext(ctx).Save(code).Error
+}
+
+func (store *Store) DeleteAuthorizationCodesByClientID(ctx context.Context, clientID string) error {
+	return store.db.WithContext(ctx).Delete(&model.AuthorizationCode{}, "client_id = ?", clientID).Error
+}
+
+func (store *Store) DeleteAuthorizationCodesByUserID(ctx context.Context, userID string) error {
+	return store.db.WithContext(ctx).Delete(&model.AuthorizationCode{}, "user_id = ?", userID).Error
 }
 
 func (store *Store) CreateAccessToken(ctx context.Context, token *model.AccessToken) error {
@@ -167,6 +198,14 @@ func (store *Store) ListAccessTokensByUserAndClient(ctx context.Context, userID 
 
 func (store *Store) SaveAccessToken(ctx context.Context, token *model.AccessToken) error {
 	return store.db.WithContext(ctx).Save(token).Error
+}
+
+func (store *Store) DeleteAccessTokensByClientID(ctx context.Context, clientID string) error {
+	return store.db.WithContext(ctx).Delete(&model.AccessToken{}, "client_id = ?", clientID).Error
+}
+
+func (store *Store) DeleteAccessTokensByUserID(ctx context.Context, userID string) error {
+	return store.db.WithContext(ctx).Delete(&model.AccessToken{}, "user_id = ?", userID).Error
 }
 
 func (store *Store) CreateRefreshToken(ctx context.Context, token *model.RefreshToken) error {
@@ -220,6 +259,14 @@ func (store *Store) ListRefreshTokensByAccessTokenID(ctx context.Context, access
 
 func (store *Store) SaveRefreshToken(ctx context.Context, token *model.RefreshToken) error {
 	return store.db.WithContext(ctx).Save(token).Error
+}
+
+func (store *Store) DeleteRefreshTokensByClientID(ctx context.Context, clientID string) error {
+	return store.db.WithContext(ctx).Delete(&model.RefreshToken{}, "client_id = ?", clientID).Error
+}
+
+func (store *Store) DeleteRefreshTokensByUserID(ctx context.Context, userID string) error {
+	return store.db.WithContext(ctx).Delete(&model.RefreshToken{}, "user_id = ?", userID).Error
 }
 
 func (store *Store) CreateAuditLog(ctx context.Context, logEntry *model.AuditLog) error {

@@ -1,4 +1,4 @@
-import type { OAuthClientRecord, OverviewStats, SessionRecord, TokenRecord, UserRecord } from '@/types/api'
+import type { OAuthClientRecord, OverviewStats, TokenRecord, UserRecord } from '@/types/api'
 
 import { request } from './http'
 
@@ -12,17 +12,33 @@ export async function fetchClients() {
 }
 
 export function createClient(payload: Record<string, unknown>) {
-  return request<OAuthClientRecord>('/api/clients', {
+	return request<OAuthClientRecord>('/api/clients', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
 }
 
 export function updateClient(id: string, payload: Record<string, unknown>) {
-  return request<OAuthClientRecord>(`/api/clients/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(payload),
-  })
+	return request<OAuthClientRecord>(`/api/clients/${id}`, {
+		method: 'PUT',
+		body: JSON.stringify(payload),
+	})
+}
+
+export function deleteClient(id: string) {
+	return request<void>(`/api/clients/${id}`, {
+		method: 'DELETE',
+	})
+}
+
+export function uploadClientIcon(file: File) {
+	const formData = new FormData()
+	formData.append('file', file)
+
+	return request<{ icon_url: string }>('/api/client-icons/upload', {
+		method: 'POST',
+		body: formData,
+	})
 }
 
 export async function fetchUsers() {
@@ -44,13 +60,10 @@ export function updateUser(id: string, payload: Record<string, unknown>) {
   })
 }
 
-export async function fetchSessions() {
-  const response = await request<{ items: SessionRecord[] }>('/api/sessions')
-  return response.items
-}
-
-export function revokeSession(id: string) {
-  return request<void>(`/api/sessions/${id}`, { method: 'DELETE' })
+export function deleteUser(id: string) {
+  return request<void>(`/api/users/${id}`, {
+    method: 'DELETE',
+  })
 }
 
 export async function fetchTokens() {

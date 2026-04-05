@@ -1,27 +1,33 @@
 <script setup lang="ts">
-import { NButton, NCard, NEmpty, NTable, NTag, useMessage } from 'naive-ui'
+import { NAlert, NButton, NCard, NEmpty, NPopconfirm, NSpace, NTable, NTag, useMessage } from 'naive-ui'
 import { onMounted, shallowRef } from 'vue'
 
-import { fetchUsers } from '@/api/admin'
+import { deleteUser, fetchUsers } from '@/api/admin'
 import { ApiError } from '@/api/http'
 import UserFormDrawer from '@/components/admin/UserFormDrawer.vue'
+import { useSessionStore } from '@/stores/session'
 import type { UserRecord } from '@/types/api'
 
 const message = useMessage()
+const sessionStore = useSessionStore()
 
 const users = shallowRef<UserRecord[]>([])
 const drawerVisible = shallowRef(false)
 const drawerSaving = shallowRef(false)
 const activeUser = shallowRef<UserRecord | null>(null)
+const loadError = shallowRef('')
 
 onMounted(loadUsers)
 
 async function loadUsers() {
+  loadError.value = ''
+
   try {
     users.value = await fetchUsers()
   }
   catch (error) {
-    message.error(error instanceof ApiError ? error.message : '加载用户失败')
+    loadError.value = error instanceof ApiError ? error.message : '加载用户失败'
+    message.error(loadError.value)
   }
 }
 
@@ -38,10 +44,25 @@ function openEditDrawer(user: UserRecord) {
 async function handleSaved() {
   await loadUsers()
 }
+
+async function handleDelete(user: UserRecord) {
+  try {
+    await deleteUser(user.id)
+    message.success('用户已删除')
+    await loadUsers()
+  }
+  catch (error) {
+    message.error(error instanceof ApiError ? error.message : '删除用户失败')
+  }
+}
+
+function isCurrentUser(user: UserRecord) {
+  return sessionStore.user?.id === user.id
+}
 </script>
 
 <template>
-  <section>
+  <section class="page-stack">
     <header class="page-header">
       <div>
         <h1 class="page-title">用户管理</h1>
@@ -49,6 +70,13 @@ async function handleSaved() {
       </div>
       <NButton type="primary" @click="openCreateDrawer">新建用户</NButton>
     </header>
+
+    <NAlert v-if="loadError" type="error" :show-icon="false">
+      <div class="page-alert">
+        <span>{{ loadError }}</span>
+        <NButton size="small" tertiary @click="loadUsers">重试</NButton>
+      </div>
+    </NAlert>
 
     <NCard>
       <NEmpty v-if="users.length === 0" description="暂无用户。" />
@@ -81,7 +109,15 @@ async function handleSaved() {
                 </NTag>
               </td>
               <td>
-                <NButton size="small" tertiary @click="openEditDrawer(user)">编辑</NButton>
+                <NSpace>
+                  <NButton size="small" tertiary @click="openEditDrawer(user)">编辑</NButton>
+                  <NPopconfirm @positive-click="handleDelete(user)">
+                    <template #trigger>
+                      <NButton size="small" tertiary type="error" :disabled="isCurrentUser(user)">删除</NButton>
+                    </template>
+                    删除后不可恢复，确认继续？
+                  </NPopconfirm>
+                </NSpace>
               </td>
             </tr>
           </tbody>
@@ -99,7 +135,17 @@ async function handleSaved() {
 </template>
 
 <style scoped>
-.table-scroll {
-  overflow-x: auto;
+.page-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+@media (max-width: 820px) {
+  .page-alert {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 </style>

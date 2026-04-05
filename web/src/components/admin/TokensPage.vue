@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  NAlert,
   NButton,
   NCard,
   NEmpty,
@@ -33,6 +34,7 @@ interface TokenGroup {
 const message = useMessage()
 const tokens = shallowRef<TokenRecord[]>([])
 const pendingActionKey = shallowRef('')
+const loadError = shallowRef('')
 
 const stats = computed(() => ({
   active: tokens.value.filter(token => token.status === 'active').length,
@@ -70,11 +72,14 @@ onMounted(() => {
 })
 
 async function loadTokens() {
+  loadError.value = ''
+
   try {
     tokens.value = await fetchTokens()
   }
   catch (error) {
-    message.error(error instanceof ApiError ? error.message : '加载令牌失败')
+    loadError.value = error instanceof ApiError ? error.message : '加载令牌失败'
+    message.error(loadError.value)
   }
 }
 
@@ -137,7 +142,7 @@ function isActionPending(actionKey: string) {
 </script>
 
 <template>
-  <section>
+  <section class="page-stack">
     <header class="page-header">
       <div>
         <h1 class="page-title">令牌控制</h1>
@@ -145,6 +150,13 @@ function isActionPending(actionKey: string) {
       </div>
       <NButton tertiary @click="loadTokens">刷新列表</NButton>
     </header>
+
+    <NAlert v-if="loadError" type="error" :show-icon="false">
+      <div class="page-alert">
+        <span>{{ loadError }}</span>
+        <NButton size="small" tertiary @click="loadTokens">重试</NButton>
+      </div>
+    </NAlert>
 
     <NGrid cols="1 s:2 l:4" responsive="screen" :x-gap="16" :y-gap="16">
       <NGridItem>
@@ -162,11 +174,11 @@ function isActionPending(actionKey: string) {
     </NGrid>
 
     <div class="token-stack">
-      <NCard v-if="groups.length === 0" class="token-card">
+      <NCard v-if="groups.length === 0">
         <NEmpty description="暂无令牌记录。" />
       </NCard>
 
-      <NCard v-for="group in groups" :key="group.clientId" class="token-card" :bordered="false">
+      <NCard v-for="group in groups" :key="group.clientId">
         <div class="token-group-header">
           <div>
             <h2 class="token-group-title">{{ group.clientName }}</h2>
@@ -248,13 +260,7 @@ function isActionPending(actionKey: string) {
 <style scoped>
 .token-stack {
   display: grid;
-  gap: 18px;
-  margin-top: 24px;
-}
-
-.token-card {
-  border-radius: 24px;
-  background: rgba(8, 13, 24, 0.86);
+  gap: 16px;
 }
 
 .token-group-header {
@@ -279,8 +285,20 @@ function isActionPending(actionKey: string) {
   overflow-x: auto;
 }
 
+.page-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 @media (max-width: 820px) {
   .token-group-header {
+    flex-direction: column;
+  }
+
+  .page-alert {
+    align-items: flex-start;
     flex-direction: column;
   }
 }

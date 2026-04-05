@@ -3,13 +3,12 @@ import {
   NAlert,
   NButton,
   NCard,
-  NDescriptions,
-  NDescriptionsItem,
   NDivider,
   NSpace,
   NSpin,
   NTag,
   NText,
+  NResult,
   useMessage,
 } from 'naive-ui'
 import { computed, shallowRef, watch } from 'vue'
@@ -31,7 +30,18 @@ const isSubmitting = shallowRef(false)
 const errorMessage = shallowRef('')
 
 const scopeItems = computed(() => preview.value?.client.requested_scope_details ?? [])
-const descriptionColumns = computed(() => (isMobile.value ? 1 : 2))
+const actionsVertical = computed(() => isMobile.value)
+const clientInitial = computed(() => (preview.value?.client.name?.trim().charAt(0) || 'C').toUpperCase())
+const clientTitle = computed(() => preview.value ? `${preview.value.client.name} 请求使用您的信息` : '授权确认')
+const clientSubtitle = computed(() => preview.value?.client.description?.trim() || '该应用希望获取以下信息。')
+const hasClientIcon = computed(() => Boolean(preview.value?.client.icon_url?.trim()))
+const consentHint = computed(() => {
+  if (!preview.value) {
+    return ''
+  }
+
+  return `点击同意后 ${preview.value.client.name} 将获得以上权限，您将被重定向到 ${preview.value.client.redirect_uri}`
+})
 
 watch(preview, (nextPreview) => {
   if (nextPreview?.client.trusted && !isSubmitting.value) {
@@ -109,42 +119,44 @@ function getQueryValue(key: string) {
 </script>
 
 <template>
-  <NCard title="授权确认" class="authorize-card">
+  <div class="auth-panel-view">
     <NSpin :show="isLoading">
       <NAlert v-if="errorMessage" type="error" :show-icon="false">
-        {{ errorMessage }}
+        <div class="error-block">
+          <span>{{ errorMessage }}</span>
+          <NButton size="small" tertiary @click="loadPreview">
+            重试
+          </NButton>
+        </div>
       </NAlert>
 
       <template v-else-if="preview">
         <NSpace vertical :size="16">
-          <div>
-            <NSpace align="center" :wrap="true">
-              <NText strong>{{ preview.client.name }}</NText>
-              <NTag v-if="preview.client.trusted" type="success" round>Trusted</NTag>
-            </NSpace>
-            <NText v-if="preview.client.description" depth="3">{{ preview.client.description }}</NText>
-          </div>
+          <div class="client-hero">
+            <p class="auth-panel-kicker">授权确认</p>
+            <img
+              v-if="hasClientIcon"
+              :src="preview.client.icon_url"
+              :alt="preview.client.name"
+              class="client-avatar client-avatar-image"
+            >
+            <div v-else class="client-avatar client-avatar-fallback">
+              {{ clientInitial }}
+            </div>
 
-          <NDescriptions bordered label-placement="top" :column="descriptionColumns">
-            <NDescriptionsItem label="客户端 ID">
-              <span class="mono">{{ preview.client.client_id }}</span>
-            </NDescriptionsItem>
-            <NDescriptionsItem label="客户端类型">
-              {{ preview.client.client_type }}
-            </NDescriptionsItem>
-            <NDescriptionsItem label="回调地址">
-              <span class="mono">{{ preview.client.redirect_uri }}</span>
-            </NDescriptionsItem>
-            <NDescriptionsItem label="当前用户">
-              {{ preview.user.display_name }}
-            </NDescriptionsItem>
-          </NDescriptions>
+            <div class="client-title-block">
+              <h2 class="client-title">{{ clientTitle }}</h2>
+              <p class="client-subtitle">{{ clientSubtitle }}</p>
+            </div>
+
+            <NTag v-if="preview.client.trusted" type="success" round>Trusted</NTag>
+          </div>
 
           <NDivider style="margin: 0;" />
 
           <div>
             <NSpace align="center" justify="space-between" :wrap="true">
-              <NText strong>Scope</NText>
+              <NText strong>请求的 Scope</NText>
               <NTag round type="info">{{ scopeItems.length }}</NTag>
             </NSpace>
 
@@ -153,36 +165,52 @@ function getQueryValue(key: string) {
                 <NSpace vertical :size="6">
                   <NSpace align="center" :wrap="true">
                     <NTag size="small" type="info" round>{{ scope.label }}</NTag>
-                    <span class="mono">{{ scope.key }}</span>
                   </NSpace>
                   <NText depth="3">{{ scope.description }}</NText>
                 </NSpace>
               </NCard>
             </div>
+
+            <NText depth="3" class="scope-hint">{{ consentHint }}</NText>
           </div>
+
+          <NResult
+            v-if="scopeItems.length === 0"
+            status="warning"
+            title="未请求任何可用 Scope"
+            description="请返回客户端检查授权参数。"
+          />
 
           <NAlert v-if="preview.client.trusted" type="success" :show-icon="false">
             Trusted client，将自动通过。
           </NAlert>
 
-          <NSpace justify="end">
-            <NButton :disabled="isSubmitting" @click="handleDecision(false)">
+          <NSpace justify="end" :vertical="actionsVertical" :size="12" class="action-row">
+            <NButton :disabled="isSubmitting" :block="isMobile" @click="handleDecision(false)">
               拒绝
             </NButton>
-            <NButton type="primary" :loading="isSubmitting" @click="handleDecision(true)">
+            <NButton type="primary" :block="isMobile" :loading="isSubmitting" @click="handleDecision(true)">
               同意
             </NButton>
           </NSpace>
         </NSpace>
       </template>
     </NSpin>
-  </NCard>
+  </div>
 </template>
 
 <style scoped>
-.authorize-card {
-  max-width: 720px;
-  margin: 0 auto;
+.auth-panel-view {
+  color: #eff6ff;
+}
+
+.auth-panel-kicker {
+  margin: 0;
+  color: rgba(208, 226, 248, 0.72);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .scope-grid {
@@ -192,9 +220,90 @@ function getQueryValue(key: string) {
   margin-top: 12px;
 }
 
+.client-hero {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
+}
+
+.client-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  background: rgba(52, 159, 244, 0.18);
+  color: #9fd6ff;
+  flex-shrink: 0;
+}
+
+.client-avatar-image {
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.client-avatar-fallback {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.client-title-block {
+  display: grid;
+  gap: 8px;
+}
+
+.client-title {
+  margin: 0;
+  font-size: clamp(24px, 2.8vw, 30px);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+
+.client-subtitle {
+  margin: 0;
+  color: rgba(226, 236, 248, 0.68);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.error-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.action-row {
+  width: 100%;
+}
+
+.mono {
+  overflow-wrap: anywhere;
+}
+
+.redirect-uri {
+  display: inline-block;
+  max-width: 100%;
+  word-break: break-all;
+}
+
+.scope-hint {
+  display: block;
+  margin-top: 12px;
+  line-height: 1.7;
+}
+
 @media (max-width: 720px) {
   .scope-grid {
     grid-template-columns: 1fr;
+  }
+
+  .error-block {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

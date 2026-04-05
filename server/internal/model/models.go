@@ -21,6 +21,7 @@ type OAuthClient struct {
 	ID               string    `gorm:"primaryKey;size:36" json:"id"`
 	Name             string    `gorm:"size:160;not null" json:"name"`
 	Description      string    `gorm:"type:text" json:"description"`
+	IconURL          string    `gorm:"size:500" json:"icon_url"`
 	ClientID         string    `gorm:"size:120;uniqueIndex;not null" json:"client_id"`
 	ClientSecretHash string    `gorm:"size:255" json:"-"`
 	ClientType       string    `gorm:"size:32;not null;default:public" json:"client_type"`
@@ -94,6 +95,13 @@ type AuditLog struct {
 	IPAddress string    `gorm:"size:64" json:"ip_address"`
 	Metadata  string    `gorm:"type:text" json:"metadata"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+type PlatformSetting struct {
+	Key       string    `gorm:"primaryKey;size:80" json:"key"`
+	Value     string    `gorm:"type:text;not null" json:"value"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func (client OAuthClient) RedirectURIs() []string {
