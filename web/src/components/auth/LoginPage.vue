@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { NAlert, NButton, NForm, NFormItem, NInput, useMessage } from 'naive-ui'
-import { reactive, shallowRef } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, reactive, shallowRef } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/http'
 import { usePlatformStore } from '@/stores/platform'
@@ -14,11 +14,13 @@ const platformStore = usePlatformStore()
 const sessionStore = useSessionStore()
 void platformStore.ensureLoaded().catch(() => {})
 
+const showRegister = computed(() => platformStore.allowRegistration)
+
 const isSubmitting = shallowRef(false)
 const submitError = shallowRef('')
 const formState = reactive({
-  username: 'admin',
-  password: 'Admin123!',
+  username: '',
+  password: '',
 })
 
 async function handleSubmit() {
@@ -64,8 +66,8 @@ function resolveNextTarget(nextValue: unknown) {
     </div>
 
     <NForm label-placement="top" class="auth-form" @submit.prevent="handleSubmit">
-      <NFormItem label="用户名">
-        <NInput v-model:value="formState.username" clearable placeholder="用户名" size="large" @update:value="submitError = ''" />
+      <NFormItem label="邮箱或用户名">
+        <NInput v-model:value="formState.username" clearable placeholder="邮箱或用户名" size="large" @update:value="submitError = ''" />
       </NFormItem>
 
       <NFormItem label="密码">
@@ -87,6 +89,10 @@ function resolveNextTarget(nextValue: unknown) {
         登录
       </NButton>
     </NForm>
+
+    <div v-if="showRegister" class="auth-link-row">
+      <RouterLink to="/auth/register">没有账号？立即注册</RouterLink>
+    </div>
 
   </div>
 </template>
@@ -126,6 +132,14 @@ function resolveNextTarget(nextValue: unknown) {
 .auth-form {
   display: grid;
   gap: 4px;
+}
+
+.auth-link-row {
+  margin-top: 16px;
+}
+
+.auth-link-row a {
+  color: #9fd6ff;
 }
 
 </style>

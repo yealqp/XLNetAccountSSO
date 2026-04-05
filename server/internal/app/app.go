@@ -17,7 +17,7 @@ import (
 
 func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	store := repository.New(db)
-	authService := service.NewAuthService(store, cfg)
+	authService := service.NewAuthService(store)
 	if err := authService.SeedDefaults(context.Background()); err != nil {
 		return nil, fmt.Errorf("seed defaults: %w", err)
 	}
@@ -25,13 +25,14 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	if err := adminService.EnsureDefaults(context.Background()); err != nil {
 		return nil, fmt.Errorf("seed platform settings: %w", err)
 	}
+	verificationService := service.NewVerificationService(store)
 	oauthService, err := service.NewOAuthService(store, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("build oidc service: %w", err)
 	}
 	tokenService := service.NewTokenService(store)
 
-	authHandler := handlers.NewAuthHandler(authService, cfg)
+	authHandler := handlers.NewAuthHandler(authService, adminService, verificationService, cfg)
 	adminHandler := handlers.NewAdminHandler(adminService, tokenService)
 	oauthHandler := handlers.NewOAuthHandler(oauthService, cfg)
 
@@ -61,6 +62,10 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	app.Get("/oauth/userinfo", oauthHandler.UserInfo)
 
 	api := app.Group("/api")
+	api.Get("/setup/status", authHandler.SetupStatus)
+	api.Post("/setup/initialize", authHandler.Initialize)
+	api.Post("/auth/register/code/send", authHandler.SendRegisterCode)
+	api.Post("/auth/register", authHandler.Register)
 	api.Post("/auth/login", authHandler.Login)
 	api.Post("/auth/logout", authHandler.Logout)
 	api.Get("/auth/session", authHandler.Session)

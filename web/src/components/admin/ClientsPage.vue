@@ -4,14 +4,16 @@ import {
   NAvatar,
   NButton,
   NCard,
+  NCode,
   NEmpty,
   NPopconfirm,
   NSpace,
   NTable,
   NTag,
+  useDialog,
   useMessage,
 } from 'naive-ui'
-import { onMounted, shallowRef } from 'vue'
+import { h, onMounted, shallowRef } from 'vue'
 
 import { ApiError } from '@/api/http'
 import { deleteClient, fetchClients } from '@/api/admin'
@@ -19,12 +21,12 @@ import ClientFormDrawer from '@/components/admin/ClientFormDrawer.vue'
 import type { OAuthClientRecord } from '@/types/api'
 
 const message = useMessage()
+const dialog = useDialog()
 
 const clients = shallowRef<OAuthClientRecord[]>([])
 const drawerVisible = shallowRef(false)
 const drawerSaving = shallowRef(false)
 const activeClient = shallowRef<OAuthClientRecord | null>(null)
-const latestSecret = shallowRef('')
 const loadError = shallowRef('')
 
 onMounted(loadClients)
@@ -43,18 +45,18 @@ async function loadClients() {
 
 function openCreateDrawer() {
   activeClient.value = null
-  latestSecret.value = ''
   drawerVisible.value = true
 }
 
 function openEditDrawer(client: OAuthClientRecord) {
   activeClient.value = client
-  latestSecret.value = ''
   drawerVisible.value = true
 }
 
 async function handleSaved(client: OAuthClientRecord) {
-  latestSecret.value = client.client_secret ?? ''
+  if (client.client_secret) {
+    openSecretDialog(client.client_secret)
+  }
   await loadClients()
 }
 
@@ -68,6 +70,32 @@ async function handleDelete(client: OAuthClientRecord) {
     message.error(error instanceof ApiError ? error.message : '删除客户端失败')
   }
 }
+
+function openSecretDialog(secret: string) {
+  dialog.warning({
+    title: 'Client Secret',
+    content: () => h('div', { style: { display: 'grid', gap: '12px' } }, [
+      h('span', '仅展示一次，请立即保存。'),
+      h(NCode, {
+        code: secret,
+        language: 'text',
+        wordWrap: true,
+      }),
+    ]),
+    positiveText: '我已保存',
+    negativeText: '复制',
+    onNegativeClick: async () => {
+      try {
+        await navigator.clipboard.writeText(secret)
+        message.success('已复制 Client Secret')
+      }
+      catch {
+        message.error('复制失败，请手动复制')
+      }
+      return false
+    },
+  })
+}
 </script>
 
 <template>
@@ -79,10 +107,6 @@ async function handleDelete(client: OAuthClientRecord) {
       </div>
       <NButton type="primary" @click="openCreateDrawer">新建客户端</NButton>
     </header>
-
-    <NAlert v-if="latestSecret" type="warning" title="仅展示一次的 Client Secret" class="secret-alert">
-      <span class="mono">{{ latestSecret }}</span>
-    </NAlert>
 
     <NAlert v-if="loadError" type="error" :show-icon="false">
       <div class="page-alert">
@@ -164,9 +188,6 @@ async function handleDelete(client: OAuthClientRecord) {
 </template>
 
 <style scoped>
-.secret-alert {
-  margin-bottom: 16px;
-}
 
 .client-name-cell {
   display: flex;

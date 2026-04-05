@@ -104,6 +104,17 @@ type PlatformSetting struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type EmailVerificationCode struct {
+	ID         string     `gorm:"primaryKey;size:36" json:"id"`
+	Email      string     `gorm:"size:160;index;not null" json:"email"`
+	Purpose    string     `gorm:"size:32;index;not null" json:"purpose"`
+	CodeHash   string     `gorm:"size:128;not null" json:"-"`
+	ExpiresAt  time.Time  `gorm:"index;not null" json:"expires_at"`
+	ConsumedAt *time.Time `json:"consumed_at"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+}
+
 func (client OAuthClient) RedirectURIs() []string {
 	return splitLines(client.RedirectURIsRaw)
 }

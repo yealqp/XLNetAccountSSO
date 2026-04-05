@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { NAlert, NButton, NCard, NGrid, NGridItem, NTag, useMessage } from 'naive-ui'
+import { NAlert, NButton, NCard, NGrid, NGridItem, NSpace, NTag, useMessage } from 'naive-ui'
 import { onMounted, shallowRef } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { fetchOverview } from '@/api/admin'
 import StatPanel from '@/components/admin/StatPanel.vue'
@@ -12,6 +13,7 @@ const overview = shallowRef<OverviewStats | null>(null)
 const sessionStore = useSessionStore()
 const message = useMessage()
 const loadError = shallowRef('')
+const router = useRouter()
 
 onMounted(async () => {
   await loadOverview()
@@ -38,7 +40,10 @@ async function loadOverview() {
           <h1 class="page-title">欢迎回来，{{ sessionStore.user?.display_name ?? sessionStore.user?.username }}</h1>
           <p class="page-subtitle">用户、客户端与令牌概览。</p>
         </div>
-        <NTag round type="info">Dark</NTag>
+        <NSpace>
+          <NTag round type="info">OAuth2</NTag>
+          <NTag round>Opaque Token</NTag>
+        </NSpace>
       </div>
     </NCard>
 
@@ -51,19 +56,33 @@ async function loadOverview() {
 
     <NGrid cols="1 s:2 l:3" responsive="screen" :x-gap="16" :y-gap="16">
       <NGridItem>
-        <StatPanel label="用户数" :value="overview?.users ?? '--'" detail="管理所有登录账户与角色。" />
+        <StatPanel label="用户数" :value="overview?.users ?? '--'" detail="当前已创建账号总数。" />
       </NGridItem>
       <NGridItem>
-        <StatPanel label="客户端" :value="overview?.clients ?? '--'" detail="已注册的 OAuth2 应用数量。" />
+        <StatPanel label="客户端" :value="overview?.clients ?? '--'" detail="已注册 OAuth 应用数量。" />
       </NGridItem>
       <NGridItem>
-        <StatPanel label="有效 Access Token" :value="overview?.access_tokens ?? '--'" detail="尚未撤销且未过期的令牌。" />
+        <StatPanel label="有效令牌" :value="overview?.access_tokens ?? '--'" detail="未撤销且未过期的 access token。" />
       </NGridItem>
     </NGrid>
 
-    <NCard title="联调提示">
-      先确认 demo client 的回调地址，再发起授权流程。
-    </NCard>
+    <NGrid cols="1 l:2" responsive="screen" :x-gap="16" :y-gap="16">
+      <NGridItem>
+        <NCard title="快捷入口">
+          <NSpace>
+            <NButton tertiary @click="router.push({ name: 'clients' })">客户端</NButton>
+            <NButton tertiary @click="router.push({ name: 'tokens' })">令牌</NButton>
+            <NButton tertiary @click="router.push({ name: 'connection-info' })">连接信息</NButton>
+            <NButton v-if="sessionStore.user?.role === 'admin'" tertiary @click="router.push({ name: 'settings' })">设置</NButton>
+          </NSpace>
+        </NCard>
+      </NGridItem>
+      <NGridItem>
+        <NCard title="提示">
+          先确认客户端回调地址，再发起授权流程。
+        </NCard>
+      </NGridItem>
+    </NGrid>
   </section>
 </template>
 

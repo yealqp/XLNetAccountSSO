@@ -53,62 +53,102 @@ type AdminService struct {
 	cfg   config.Config
 }
 
-const settingPlatformName = "platform_name"
+const (
+	settingPlatformName      = "platform_name"
+	settingAllowRegistration = "allow_registration"
+	settingSMTPHost          = "smtp_host"
+	settingSMTPUser          = "smtp_user"
+	settingSMTPPassword      = "smtp_password"
+	settingSMTPPort          = "smtp_port"
+	settingSMTPTLS           = "smtp_tls"
+	settingCAPAPIEndpoint    = "cap_api_endpoint"
+	settingCAPSecretKey      = "cap_secret_key"
+)
+
+type PlatformSettings struct {
+	PlatformName      string `json:"platform_name"`
+	AllowRegistration bool   `json:"allow_registration"`
+	SMTPHost          string `json:"smtp_host"`
+	SMTPUser          string `json:"smtp_user"`
+	SMTPPassword      string `json:"smtp_password"`
+	SMTPPort          string `json:"smtp_port"`
+	SMTPTLS           bool   `json:"smtp_tls"`
+	CAPAPIEndpoint    string `json:"cap_api_endpoint"`
+	CAPSecretKey      string `json:"cap_secret_key"`
+}
 
 func NewAdminService(store *repository.Store, cfg config.Config) *AdminService {
 	return &AdminService{store: store, cfg: cfg}
 }
 
 func (service *AdminService) EnsureDefaults(ctx context.Context) error {
-	setting, err := service.store.FindPlatformSetting(ctx, settingPlatformName)
-	if err != nil {
-		return err
+	defaults := map[string]string{
+		settingPlatformName:      strings.TrimSpace(service.cfg.AppName),
+		settingAllowRegistration: "false",
+		settingSMTPPort:          "587",
+		settingSMTPTLS:           "true",
 	}
-	if setting != nil && strings.TrimSpace(setting.Value) != "" {
-		return nil
+	for key, value := range defaults {
+		setting, err := service.store.FindPlatformSetting(ctx, key)
+		if err != nil {
+			return err
+		}
+		if setting != nil && strings.TrimSpace(setting.Value) != "" {
+			continue
+		}
+		if err := service.store.SavePlatformSetting(ctx, &model.PlatformSetting{Key: key, Value: value}); err != nil {
+			return err
+		}
 	}
-	return service.store.SavePlatformSetting(ctx, &model.PlatformSetting{
-		Key:   settingPlatformName,
-		Value: strings.TrimSpace(service.cfg.AppName),
-	})
+	return nil
 }
 
 func (service *AdminService) PublicSettings(ctx context.Context) (map[string]any, error) {
-	platformName, err := service.PlatformName(ctx)
+	settings, err := service.loadPlatformSettings(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return map[string]any{
-		"platform_name": platformName,
+		"platform_name":      settings.PlatformName,
+		"allow_registration": settings.AllowRegistration,
+		"cap_api_endpoint":   settings.CAPAPIEndpoint,
 	}, nil
 }
 
 func (service *AdminService) PlatformName(ctx context.Context) (string, error) {
-	setting, err := service.store.FindPlatformSetting(ctx, settingPlatformName)
+	settings, err := service.loadPlatformSettings(ctx)
 	if err != nil {
 		return "", err
 	}
-	if setting == nil || strings.TrimSpace(setting.Value) == "" {
-		return strings.TrimSpace(service.cfg.AppName), nil
-	}
-	return strings.TrimSpace(setting.Value), nil
+	return settings.PlatformName, nil
 }
 
-func (service *AdminService) UpdatePlatformName(ctx context.Context, value string) (map[string]any, error) {
-	platformName := strings.TrimSpace(value)
+func (service *AdminService) PlatformSettings(ctx context.Context) (PlatformSettings, error) {
+	return service.loadPlatformSettings(ctx)
+}
+
+func (service *AdminService) UpdatePlatformSettings(ctx context.Context, input PlatformSettings) (PlatformSettings, error) {
+	platformName := strings.TrimSpace(input.PlatformName)
 	if platformName == "" {
-		return nil, fmt.Errorf("%w: 平台名称不能为空", ErrInvalidInput)
+		return PlatformSettings{}, fmt.Errorf("%w: 平台名称不能为空", ErrInvalidInput)
 	}
-	setting := &model.PlatformSetting{
-		Key:   settingPlatformName,
-		Value: platformName,
+	settings := map[string]string{
+		settingPlatformName:      platformName,
+		settingAllowRegistration: boolString(input.AllowRegistration),
+		settingSMTPHost:          strings.TrimSpace(input.SMTPHost),
+		settingSMTPUser:          strings.TrimSpace(input.SMTPUser),
+		settingSMTPPassword:      strings.TrimSpace(input.SMTPPassword),
+		settingSMTPPort:          strings.TrimSpace(input.SMTPPort),
+		settingSMTPTLS:           boolString(input.SMTPTLS),
+		settingCAPAPIEndpoint:    strings.TrimSpace(input.CAPAPIEndpoint),
+		settingCAPSecretKey:      strings.TrimSpace(input.CAPSecretKey),
 	}
-	if err := service.store.SavePlatformSetting(ctx, setting); err != nil {
-		return nil, err
+	for key, value := range settings {
+		if err := service.store.SavePlatformSetting(ctx, &model.PlatformSetting{Key: key, Value: value}); err != nil {
+			return PlatformSettings{}, err
+		}
 	}
-	return map[string]any{
-		"platform_name": platformName,
-	}, nil
+	return service.loadPlatformSettings(ctx)
 }
 
 func (service *AdminService) Overview(ctx context.Context) (repository.Overview, error) {
@@ -285,12 +325,22 @@ func (service *AdminService) CreateUser(ctx context.Context, input CreateUserInp
 	if username == "" || strings.TrimSpace(input.Password) == "" {
 		return nil, ErrInvalidInput
 	}
+	email := strings.TrimSpace(strings.ToLower(input.Email))
 	existing, err := service.store.FindUserByUsername(ctx, username)
 	if err != nil {
 		return nil, err
 	}
 	if existing != nil {
 		return nil, ErrConflict
+	}
+	if email != "" {
+		existingByEmail, err := service.store.FindUserByEmail(ctx, email)
+		if err != nil {
+			return nil, err
+		}
+		if existingByEmail != nil {
+			return nil, ErrConflict
+		}
 	}
 	passwordHash, err := security.HashPassword(input.Password)
 	if err != nil {
@@ -305,7 +355,7 @@ func (service *AdminService) CreateUser(ctx context.Context, input CreateUserInp
 		Username:     username,
 		PasswordHash: passwordHash,
 		DisplayName:  strings.TrimSpace(input.DisplayName),
-		Email:        strings.TrimSpace(input.Email),
+		Email:        email,
 		Role:         role,
 		Status:       "active",
 	}
@@ -329,7 +379,14 @@ func (service *AdminService) UpdateUser(ctx context.Context, id string, input Up
 	if displayName := strings.TrimSpace(input.DisplayName); displayName != "" {
 		user.DisplayName = displayName
 	}
-	if email := strings.TrimSpace(input.Email); email != "" {
+	if email := strings.TrimSpace(strings.ToLower(input.Email)); email != "" {
+		existingByEmail, err := service.store.FindUserByEmail(ctx, email)
+		if err != nil {
+			return nil, err
+		}
+		if existingByEmail != nil && existingByEmail.ID != user.ID {
+			return nil, ErrConflict
+		}
 		user.Email = email
 	}
 	if role := strings.TrimSpace(input.Role); role != "" {
@@ -375,6 +432,78 @@ func (service *AdminService) DeleteUser(ctx context.Context, actor *model.User, 
 		return err
 	}
 	return service.store.DeleteUser(ctx, id)
+}
+
+func (service *AdminService) loadPlatformSettings(ctx context.Context) (PlatformSettings, error) {
+	platformName, err := service.settingValue(ctx, settingPlatformName, strings.TrimSpace(service.cfg.AppName))
+	if err != nil {
+		return PlatformSettings{}, err
+	}
+	allowRegistration, err := service.settingValue(ctx, settingAllowRegistration, "false")
+	if err != nil {
+		return PlatformSettings{}, err
+	}
+	smtpHost, err := service.settingValue(ctx, settingSMTPHost, "")
+	if err != nil {
+		return PlatformSettings{}, err
+	}
+	smtpUser, err := service.settingValue(ctx, settingSMTPUser, "")
+	if err != nil {
+		return PlatformSettings{}, err
+	}
+	smtpPassword, err := service.settingValue(ctx, settingSMTPPassword, "")
+	if err != nil {
+		return PlatformSettings{}, err
+	}
+	smtpPort, err := service.settingValue(ctx, settingSMTPPort, "587")
+	if err != nil {
+		return PlatformSettings{}, err
+	}
+	smtpTLS, err := service.settingValue(ctx, settingSMTPTLS, "true")
+	if err != nil {
+		return PlatformSettings{}, err
+	}
+	capAPIEndpoint, err := service.settingValue(ctx, settingCAPAPIEndpoint, "")
+	if err != nil {
+		return PlatformSettings{}, err
+	}
+	capSecretKey, err := service.settingValue(ctx, settingCAPSecretKey, "")
+	if err != nil {
+		return PlatformSettings{}, err
+	}
+	return PlatformSettings{
+		PlatformName:      platformName,
+		AllowRegistration: parseBoolString(allowRegistration),
+		SMTPHost:          smtpHost,
+		SMTPUser:          smtpUser,
+		SMTPPassword:      smtpPassword,
+		SMTPPort:          smtpPort,
+		SMTPTLS:           parseBoolString(smtpTLS),
+		CAPAPIEndpoint:    capAPIEndpoint,
+		CAPSecretKey:      capSecretKey,
+	}, nil
+}
+
+func (service *AdminService) settingValue(ctx context.Context, key string, fallback string) (string, error) {
+	setting, err := service.store.FindPlatformSetting(ctx, key)
+	if err != nil {
+		return "", err
+	}
+	if setting == nil || strings.TrimSpace(setting.Value) == "" {
+		return fallback, nil
+	}
+	return strings.TrimSpace(setting.Value), nil
+}
+
+func parseBoolString(value string) bool {
+	return strings.EqualFold(strings.TrimSpace(value), "true") || strings.TrimSpace(value) == "1"
+}
+
+func boolString(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
 }
 
 func clientResponse(client model.OAuthClient, rawSecret string) map[string]any {

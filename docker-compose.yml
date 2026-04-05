@@ -37,7 +37,7 @@ services:
       OIDC_ISSUER: ${SSO_OIDC_ISSUER:-}
       OIDC_KEY_ID: ${SSO_OIDC_KEY_ID:-}
       OIDC_PRIVATE_KEY_PEM: ${SSO_OIDC_PRIVATE_KEY_PEM:-}
-      CORS_ORIGINS: ${SSO_CORS_ORIGINS:-http://localhost:5173,http://localhost:4173}
+      CORS_ORIGINS: ${SSO_CORS_ORIGINS:-http://localhost:5173}
       COOKIE_NAME: sso_session
       COOKIE_SECURE: "false"
       DB_HOST: mysql
@@ -45,13 +45,6 @@ services:
       DB_USER: ${SSO_MYSQL_USER:-sso_app}
       DB_PASSWORD: ${SSO_MYSQL_PASSWORD:-sso_app}
       DB_NAME: ${SSO_MYSQL_DATABASE:-sso_platform}
-      SEED_ADMIN_USERNAME: ${SSO_ADMIN_USERNAME:-admin}
-      SEED_ADMIN_PASSWORD: ${SSO_ADMIN_PASSWORD:-Admin123!}
-      SEED_ADMIN_DISPLAY_NAME: ${SSO_ADMIN_DISPLAY_NAME:-Platform Admin}
-      SEED_ADMIN_EMAIL: ${SSO_ADMIN_EMAIL:-admin@example.com}
-      SEED_DEMO_CLIENT_NAME: ${SSO_DEMO_CLIENT_NAME:-Demo Client}
-      SEED_DEMO_CLIENT_ID: ${SSO_DEMO_CLIENT_ID:-demo-web-client}
-      SEED_DEMO_CLIENT_REDIRECT_URI: ${SSO_DEMO_REDIRECT_URI:-http://localhost:4173/callback}
     ports:
       - "8080:8080"
     healthcheck:
@@ -72,21 +65,6 @@ services:
         condition: service_healthy
     ports:
       - "5173:80"
-
-  client-demo:
-    build:
-      context: .
-      dockerfile: examples/client-demo/Dockerfile
-      args:
-        VITE_AUTH_BASE_URL: ${SSO_SERVER_BASE_URL:-http://localhost:8080}
-        VITE_CLIENT_ID: ${SSO_DEMO_CLIENT_ID:-demo-web-client}
-    container_name: sso-client-demo
-    restart: unless-stopped
-    depends_on:
-      server:
-        condition: service_healthy
-    ports:
-      - "4173:80"
 
 volumes:
   mysql_data:

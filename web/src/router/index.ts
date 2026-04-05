@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import AuthLayout from '@/layouts/AuthLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
+import { usePlatformStore } from '@/stores/platform'
+import { useSetupStore } from '@/stores/setup'
 import { useSessionStore } from '@/stores/session'
 import { pinia } from '@/stores/pinia'
 
@@ -20,6 +22,16 @@ const router = createRouter({
           path: 'login',
           name: 'login',
           component: () => import('@/components/auth/LoginPage.vue'),
+        },
+        {
+          path: 'register',
+          name: 'register',
+          component: () => import('@/components/auth/RegisterPage.vue'),
+        },
+        {
+          path: 'setup',
+          name: 'setup',
+          component: () => import('@/components/auth/SetupPage.vue'),
         },
         {
           path: 'authorize',
@@ -74,6 +86,32 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const sessionStore = useSessionStore(pinia)
+  const setupStore = useSetupStore(pinia)
+  const platformStore = usePlatformStore(pinia)
+
+  const initialized = await setupStore.ensureStatus()
+
+  if (!initialized && to.name !== 'setup') {
+    return {
+      name: 'setup',
+      query: { next: to.fullPath },
+    }
+  }
+
+  if (initialized && to.name === 'setup') {
+    if (sessionStore.authenticated || (await sessionStore.ensureSession())) {
+      return { name: sessionStore.user?.role === 'admin' ? 'dashboard' : 'tokens' }
+    }
+    return { name: 'login' }
+  }
+
+  if (initialized && (to.name === 'login' || to.name === 'register' || to.name === 'authorize')) {
+		await platformStore.ensureLoaded().catch(() => {})
+	}
+
+  if (to.name === 'register' && !platformStore.allowRegistration) {
+		return { name: 'login' }
+	}
 
   if (to.meta.requiresAuth) {
     await sessionStore.ensureSession()

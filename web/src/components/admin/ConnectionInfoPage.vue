@@ -72,9 +72,9 @@ const oidcItems = [
 
 const userInfoExample = `{
   "sub": "user_123456",
-  "preferred_username": "demo_user",
-  "name": "Demo User",
-  "email": "demo@example.com",
+  "preferred_username": "account_user",
+  "name": "Account User",
+  "email": "user@example.com",
   "roles": ["admin"]
 }`
 

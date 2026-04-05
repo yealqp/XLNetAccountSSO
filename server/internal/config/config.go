@@ -8,25 +8,18 @@ import (
 )
 
 type Config struct {
-	AppName                string
-	Port                   string
-	ServerBaseURL          string
-	WebBaseURL             string
-	AssetDir               string
-	OIDCIssuer             string
-	OIDCKeyID              string
-	OIDCPrivateKeyPEM      string
-	AllowedOrigins         []string
-	CookieName             string
-	CookieSecure           bool
-	DBDSN                  string
-	SeedAdminUsername      string
-	SeedAdminPassword      string
-	SeedAdminDisplayName   string
-	SeedAdminEmail         string
-	SeedDemoClientName     string
-	SeedDemoClientID       string
-	SeedDemoClientRedirect string
+	AppName           string
+	Port              string
+	ServerBaseURL     string
+	WebBaseURL        string
+	AssetDir          string
+	OIDCIssuer        string
+	OIDCKeyID         string
+	OIDCPrivateKeyPEM string
+	AllowedOrigins    []string
+	CookieName        string
+	CookieSecure      bool
+	DBDSN             string
 }
 
 func Load() Config {
@@ -44,25 +37,18 @@ func Load() Config {
 	webBaseURL := strings.TrimRight(getEnv("WEB_BASE_URL", "http://localhost:5173"), "/")
 
 	return Config{
-		AppName:                getEnv("APP_NAME", "XLNetAccount"),
-		Port:                   getEnv("PORT", "8080"),
-		ServerBaseURL:          serverBaseURL,
-		WebBaseURL:             webBaseURL,
-		AssetDir:               getEnv("ASSET_DIR", "./data"),
-		OIDCIssuer:             strings.TrimRight(getEnv("OIDC_ISSUER", serverBaseURL), "/"),
-		OIDCKeyID:              getEnv("OIDC_KEY_ID", ""),
-		OIDCPrivateKeyPEM:      getEnv("OIDC_PRIVATE_KEY_PEM", ""),
-		AllowedOrigins:         splitCSV(getEnv("CORS_ORIGINS", "http://localhost:5173,http://localhost:4173")),
-		CookieName:             getEnv("COOKIE_NAME", "sso_session"),
-		CookieSecure:           parseBool(getEnv("COOKIE_SECURE", "false")),
-		DBDSN:                  dsn,
-		SeedAdminUsername:      getEnv("SEED_ADMIN_USERNAME", "admin"),
-		SeedAdminPassword:      getEnv("SEED_ADMIN_PASSWORD", "Admin123!"),
-		SeedAdminDisplayName:   getEnv("SEED_ADMIN_DISPLAY_NAME", "Platform Admin"),
-		SeedAdminEmail:         getEnv("SEED_ADMIN_EMAIL", "admin@example.com"),
-		SeedDemoClientName:     getEnv("SEED_DEMO_CLIENT_NAME", "Demo Client"),
-		SeedDemoClientID:       getEnv("SEED_DEMO_CLIENT_ID", "demo-web-client"),
-		SeedDemoClientRedirect: getEnv("SEED_DEMO_CLIENT_REDIRECT_URI", "http://localhost:4173/callback"),
+		AppName:           getEnv("APP_NAME", "XLNetAccount"),
+		Port:              getEnv("PORT", "8080"),
+		ServerBaseURL:     serverBaseURL,
+		WebBaseURL:        webBaseURL,
+		AssetDir:          getEnv("ASSET_DIR", "./data"),
+		OIDCIssuer:        strings.TrimRight(getEnv("OIDC_ISSUER", serverBaseURL), "/"),
+		OIDCKeyID:         getEnv("OIDC_KEY_ID", ""),
+		OIDCPrivateKeyPEM: getEnv("OIDC_PRIVATE_KEY_PEM", ""),
+		AllowedOrigins:    splitCSV(getEnv("CORS_ORIGINS", "http://localhost:5173")),
+		CookieName:        getEnv("COOKIE_NAME", "sso_session"),
+		CookieSecure:      parseBool(getEnv("COOKIE_SECURE", "false")),
+		DBDSN:             dsn,
 	}
 }
 

@@ -31,6 +31,15 @@ func (store *Store) FindUserByUsername(ctx context.Context, username string) (*m
 	return &user, err
 }
 
+func (store *Store) FindUserByEmail(ctx context.Context, email string) (*model.User, error) {
+	var user model.User
+	err := store.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &user, err
+}
+
 func (store *Store) FindUserByID(ctx context.Context, id string) (*model.User, error) {
 	var user model.User
 	err := store.db.WithContext(ctx).Where("id = ?", id).First(&user).Error
@@ -38,6 +47,12 @@ func (store *Store) FindUserByID(ctx context.Context, id string) (*model.User, e
 		return nil, nil
 	}
 	return &user, err
+}
+
+func (store *Store) CountUsers(ctx context.Context) (int64, error) {
+	var count int64
+	err := store.db.WithContext(ctx).Model(&model.User{}).Count(&count).Error
+	return count, err
 }
 
 func (store *Store) ListUsers(ctx context.Context) ([]model.User, error) {
@@ -72,6 +87,30 @@ func (store *Store) SavePlatformSetting(ctx context.Context, setting *model.Plat
 		Columns:   []clause.Column{{Name: "key"}},
 		DoUpdates: clause.AssignmentColumns([]string{"value", "updated_at"}),
 	}).Create(setting).Error
+}
+
+func (store *Store) CreateEmailVerificationCode(ctx context.Context, code *model.EmailVerificationCode) error {
+	return store.db.WithContext(ctx).Create(code).Error
+}
+
+func (store *Store) SaveEmailVerificationCode(ctx context.Context, code *model.EmailVerificationCode) error {
+	return store.db.WithContext(ctx).Save(code).Error
+}
+
+func (store *Store) DeleteEmailVerificationCodes(ctx context.Context, email string, purpose string) error {
+	return store.db.WithContext(ctx).Delete(&model.EmailVerificationCode{}, "email = ? AND purpose = ?", email, purpose).Error
+}
+
+func (store *Store) FindLatestEmailVerificationCode(ctx context.Context, email string, purpose string) (*model.EmailVerificationCode, error) {
+	var code model.EmailVerificationCode
+	err := store.db.WithContext(ctx).
+		Where("email = ? AND purpose = ?", email, purpose).
+		Order("created_at desc").
+		First(&code).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &code, err
 }
 
 func (store *Store) FindClientByClientID(ctx context.Context, clientID string) (*model.OAuthClient, error) {

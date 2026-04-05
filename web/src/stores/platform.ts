@@ -7,6 +7,8 @@ const fallbackPlatformName = 'XLNetAccount'
 
 export const usePlatformStore = defineStore('platform', () => {
 	const platformName = shallowRef(fallbackPlatformName)
+	const allowRegistration = shallowRef(false)
+	const capApiEndpoint = shallowRef('')
 	const ready = shallowRef(false)
 
 	const displayName = computed(() => platformName.value || fallbackPlatformName)
@@ -21,23 +23,39 @@ export const usePlatformStore = defineStore('platform', () => {
 
 	async function loadPublicSettings() {
 		const response = await fetchPublicSettings()
-		setPlatformName(response.platform_name)
+		applyPublicSettings(response)
 		ready.value = true
 		return displayName.value
 	}
 
 	async function loadAdminSettings() {
 		const response = await fetchPlatformSettings()
-		setPlatformName(response.platform_name)
+		applyPublicSettings(response)
 		ready.value = true
-		return displayName.value
+		return response
 	}
 
-	async function savePlatformName(nextName: string) {
-		const response = await updatePlatformSettings({ platform_name: nextName })
-		setPlatformName(response.platform_name)
+	async function savePlatformSettings(payload: {
+		platform_name: string
+		allow_registration: boolean
+		smtp_host: string
+		smtp_user: string
+		smtp_password: string
+		smtp_port: string
+		smtp_tls: boolean
+		cap_api_endpoint: string
+		cap_secret_key: string
+	}) {
+		const response = await updatePlatformSettings(payload)
+		applyPublicSettings(response)
 		ready.value = true
-		return displayName.value
+		return response
+	}
+
+	function applyPublicSettings(value: { platform_name: string; allow_registration?: boolean; cap_api_endpoint?: string }) {
+		setPlatformName(value.platform_name)
+		allowRegistration.value = Boolean(value.allow_registration)
+		capApiEndpoint.value = value.cap_api_endpoint?.trim() || ''
 	}
 
 	function setPlatformName(value: string) {
@@ -49,11 +67,14 @@ export const usePlatformStore = defineStore('platform', () => {
 
 	return {
 		platformName,
+		allowRegistration,
+		capApiEndpoint,
 		displayName,
 		ready,
 		ensureLoaded,
 		loadPublicSettings,
 		loadAdminSettings,
-		savePlatformName,
+		savePlatformSettings,
+		applyPublicSettings,
 	}
 })

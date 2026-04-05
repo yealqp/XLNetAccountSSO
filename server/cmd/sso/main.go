@@ -24,6 +24,7 @@ func main() {
 		&model.User{},
 		&model.OAuthClient{},
 		&model.PlatformSetting{},
+		&model.EmailVerificationCode{},
 		&model.AuthorizationCode{},
 		&model.AccessToken{},
 		&model.RefreshToken{},

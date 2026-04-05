@@ -2,6 +2,14 @@ import { request } from './http'
 
 export interface PlatformSettingsResponse {
 	platform_name: string
+	allow_registration: boolean
+	smtp_host?: string
+	smtp_user?: string
+	smtp_password?: string
+	smtp_port?: string
+	smtp_tls?: boolean
+	cap_api_endpoint?: string
+	cap_secret_key?: string
 }
 
 export function fetchPublicSettings() {

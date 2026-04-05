@@ -44,7 +44,7 @@ func (handler *AdminHandler) Me(c *fiber.Ctx) error {
 }
 
 func (handler *AdminHandler) PlatformSettings(c *fiber.Ctx) error {
-	settings, err := handler.adminService.PublicSettings(context.Background())
+	settings, err := handler.adminService.PlatformSettings(context.Background())
 	if err != nil {
 		return writeError(c, fiber.StatusInternalServerError, "load platform settings failed")
 	}
@@ -52,13 +52,11 @@ func (handler *AdminHandler) PlatformSettings(c *fiber.Ctx) error {
 }
 
 func (handler *AdminHandler) UpdatePlatformSettings(c *fiber.Ctx) error {
-	var input struct {
-		PlatformName string `json:"platform_name"`
-	}
+	var input service.PlatformSettings
 	if err := c.BodyParser(&input); err != nil {
 		return writeError(c, fiber.StatusBadRequest, "invalid settings payload")
 	}
-	settings, err := handler.adminService.UpdatePlatformName(context.Background(), input.PlatformName)
+	settings, err := handler.adminService.UpdatePlatformSettings(context.Background(), input)
 	if err != nil {
 		return handleServiceError(c, err, "update platform settings failed")
 	}

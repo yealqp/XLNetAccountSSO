@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+	"@cap.js/widget": "^0.1.43",
     "naive-ui": "^2.44.1",
     "pinia": "^3.0.4",
     "vue": "^3.5.32",

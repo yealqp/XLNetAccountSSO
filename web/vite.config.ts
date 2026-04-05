@@ -10,7 +10,13 @@ export default defineConfig(({ mode }) => {
   const srcPath = fileURLToPath(new URL('./src', import.meta.url))
 
   return {
-    plugins: [vue()],
+    plugins: [vue({
+		template: {
+			compilerOptions: {
+				isCustomElement: tag => tag.startsWith('cap-'),
+			},
+		},
+	})],
     resolve: {
       alias: {
         '@': path.resolve(srcPath),

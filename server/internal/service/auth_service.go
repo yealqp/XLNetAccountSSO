@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xianlin-network/sso-platform/server/internal/config"
 	"github.com/xianlin-network/sso-platform/server/internal/model"
 	"github.com/xianlin-network/sso-platform/server/internal/pkg/security"
 	"github.com/xianlin-network/sso-platform/server/internal/repository"
@@ -20,72 +19,83 @@ type SessionMeta struct {
 
 type AuthService struct {
 	store *repository.Store
-	cfg   config.Config
 }
 
-func NewAuthService(store *repository.Store, cfg config.Config) *AuthService {
-	return &AuthService{store: store, cfg: cfg}
+func NewAuthService(store *repository.Store) *AuthService {
+	return &AuthService{store: store}
 }
 
 func (service *AuthService) SeedDefaults(ctx context.Context) error {
-	admin, err := service.store.FindUserByUsername(ctx, service.cfg.SeedAdminUsername)
-	if err != nil {
-		return err
-	}
-	if admin == nil {
-		hash, err := security.HashPassword(service.cfg.SeedAdminPassword)
-		if err != nil {
-			return err
-		}
-		admin = &model.User{
-			ID:           security.NewID(),
-			Username:     service.cfg.SeedAdminUsername,
-			PasswordHash: hash,
-			DisplayName:  service.cfg.SeedAdminDisplayName,
-			Email:        service.cfg.SeedAdminEmail,
-			Role:         "admin",
-			Status:       "active",
-		}
-		if err := service.store.CreateUser(ctx, admin); err != nil {
-			return err
-		}
-	}
-
-	demoClient, err := service.store.FindClientByClientID(ctx, service.cfg.SeedDemoClientID)
-	if err != nil {
-		return err
-	}
-	if demoClient == nil {
-		demoClient = &model.OAuthClient{
-			ID:          security.NewID(),
-			Name:        service.cfg.SeedDemoClientName,
-			Description: "Public SPA client used to verify the PKCE flow.",
-			ClientID:    service.cfg.SeedDemoClientID,
-			ClientType:  "public",
-			Trusted:     false,
-			CreatedBy:   admin.ID,
-		}
-		demoClient.SetRedirectURIs([]string{service.cfg.SeedDemoClientRedirect})
-		demoClient.SetScopes([]string{"openid", "profile", "email", "offline_access"})
-		if err := service.store.CreateClient(ctx, demoClient); err != nil {
-			return err
-		}
-	} else if !contains(demoClient.Scopes(), "openid") {
-		scopes, err := NormalizeKnownScopes(append([]string{"openid"}, demoClient.Scopes()...))
-		if err != nil {
-			return err
-		}
-		demoClient.SetScopes(scopes)
-		if err := service.store.SaveClient(ctx, demoClient); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
+type InitializeAdminInput struct {
+	Username    string `json:"username"`
+	Password    string `json:"password"`
+	DisplayName string `json:"display_name"`
+	Email       string `json:"email"`
+}
+
+type RegisterInput struct {
+	Email       string `json:"email"`
+	Password    string `json:"password"`
+	DisplayName string `json:"display_name"`
+	Code        string `json:"code"`
+}
+
+func (service *AuthService) IsInitialized(ctx context.Context) (bool, error) {
+	count, err := service.store.CountUsers(ctx)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (service *AuthService) InitializeFirstAdmin(ctx context.Context, input InitializeAdminInput) (*model.User, error) {
+	initialized, err := service.IsInitialized(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if initialized {
+		return nil, ErrConflict
+	}
+	username := strings.TrimSpace(input.Username)
+	password := strings.TrimSpace(input.Password)
+	if username == "" || password == "" {
+		return nil, ErrInvalidInput
+	}
+	hash, err := security.HashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+	user := &model.User{
+		ID:           security.NewID(),
+		Username:     username,
+		PasswordHash: hash,
+		DisplayName:  strings.TrimSpace(input.DisplayName),
+		Email:        strings.TrimSpace(strings.ToLower(input.Email)),
+		Role:         "admin",
+		Status:       "active",
+	}
+	if user.DisplayName == "" {
+		user.DisplayName = username
+	}
+	if err := service.store.CreateUser(ctx, user); err != nil {
+		return nil, err
+	}
+	service.logAudit(ctx, user.ID, "setup.initialize", user.Username, "", "")
+	return user, nil
+}
+
 func (service *AuthService) Login(ctx context.Context, username string, password string, meta SessionMeta) (*model.User, string, *model.UserSession, error) {
-	user, err := service.store.FindUserByUsername(ctx, strings.TrimSpace(username))
+	initialized, err := service.IsInitialized(ctx)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	if !initialized {
+		return nil, "", nil, ErrConflict
+	}
+	user, err := service.findUserByIdentifier(ctx, username)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -118,6 +128,67 @@ func (service *AuthService) Login(ctx context.Context, username string, password
 
 	service.logAudit(ctx, user.ID, "auth.login", user.Username, meta.IPAddress, "")
 	return user, rawSessionToken, session, nil
+}
+
+func (service *AuthService) Register(ctx context.Context, input RegisterInput) (*model.User, error) {
+	initialized, err := service.IsInitialized(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !initialized {
+		return nil, ErrConflict
+	}
+	allowed, err := service.registrationEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return nil, ErrForbidden
+	}
+	email := strings.TrimSpace(strings.ToLower(input.Email))
+	password := strings.TrimSpace(input.Password)
+	if email == "" || password == "" || strings.TrimSpace(input.Code) == "" || !strings.Contains(email, "@") {
+		return nil, ErrInvalidInput
+	}
+	existingByEmail, err := service.store.FindUserByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	if existingByEmail != nil {
+		return nil, ErrConflict
+	}
+	existingByUsername, err := service.store.FindUserByUsername(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	if existingByUsername != nil {
+		return nil, ErrConflict
+	}
+	verificationService := NewVerificationService(service.store)
+	if err := verificationService.VerifyRegistrationCode(ctx, email, input.Code); err != nil {
+		return nil, err
+	}
+	hash, err := security.HashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+	user := &model.User{
+		ID:           security.NewID(),
+		Username:     email,
+		PasswordHash: hash,
+		DisplayName:  strings.TrimSpace(input.DisplayName),
+		Email:        email,
+		Role:         "user",
+		Status:       "active",
+	}
+	if user.DisplayName == "" {
+		user.DisplayName = email
+	}
+	if err := service.store.CreateUser(ctx, user); err != nil {
+		return nil, err
+	}
+	service.logAudit(ctx, user.ID, "auth.register", user.Email, "", "")
+	return user, nil
 }
 
 func (service *AuthService) ResolveSession(ctx context.Context, rawSessionToken string) (*model.User, *model.UserSession, error) {
@@ -171,6 +242,35 @@ func (service *AuthService) logAudit(ctx context.Context, actorID string, action
 		IPAddress: trimLength(ipAddress, 64),
 		Metadata:  metadata,
 	})
+}
+
+func (service *AuthService) findUserByIdentifier(ctx context.Context, identifier string) (*model.User, error) {
+	trimmed := strings.TrimSpace(identifier)
+	if trimmed == "" {
+		return nil, nil
+	}
+	if strings.Contains(trimmed, "@") {
+		user, err := service.store.FindUserByEmail(ctx, strings.ToLower(trimmed))
+		if err != nil {
+			return nil, err
+		}
+		if user != nil {
+			return user, nil
+		}
+	}
+	return service.store.FindUserByUsername(ctx, trimmed)
+}
+
+func (service *AuthService) registrationEnabled(ctx context.Context) (bool, error) {
+	setting, err := service.store.FindPlatformSetting(ctx, settingAllowRegistration)
+	if err != nil {
+		return false, err
+	}
+	if setting == nil {
+		return false, nil
+	}
+	value := strings.TrimSpace(strings.ToLower(setting.Value))
+	return value == "true" || value == "1", nil
 }
 
 func trimLength(value string, max int) string {
