@@ -1,0 +1,141 @@
+package model
+
+import (
+	"strings"
+	"time"
+)
+
+type User struct {
+	ID           string    `gorm:"primaryKey;size:36" json:"id"`
+	Username     string    `gorm:"size:64;uniqueIndex;not null" json:"username"`
+	PasswordHash string    `gorm:"size:255;not null" json:"-"`
+	DisplayName  string    `gorm:"size:120;not null" json:"display_name"`
+	Email        string    `gorm:"size:160;not null" json:"email"`
+	Role         string    `gorm:"size:32;not null;default:user" json:"role"`
+	Status       string    `gorm:"size:32;not null;default:active" json:"status"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type OAuthClient struct {
+	ID               string    `gorm:"primaryKey;size:36" json:"id"`
+	Name             string    `gorm:"size:160;not null" json:"name"`
+	Description      string    `gorm:"type:text" json:"description"`
+	ClientID         string    `gorm:"size:120;uniqueIndex;not null" json:"client_id"`
+	ClientSecretHash string    `gorm:"size:255" json:"-"`
+	ClientType       string    `gorm:"size:32;not null;default:public" json:"client_type"`
+	RedirectURIsRaw  string    `gorm:"type:text;not null" json:"-"`
+	ScopesRaw        string    `gorm:"type:text;not null" json:"-"`
+	Trusted          bool      `gorm:"not null;default:false" json:"trusted"`
+	CreatedBy        string    `gorm:"size:36;not null" json:"created_by"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+type AuthorizationCode struct {
+	ID                  string     `gorm:"primaryKey;size:36" json:"id"`
+	CodeHash            string     `gorm:"size:128;uniqueIndex;not null" json:"-"`
+	ClientID            string     `gorm:"size:120;index;not null" json:"client_id"`
+	UserID              string     `gorm:"size:36;index;not null" json:"user_id"`
+	RedirectURI         string     `gorm:"size:500;not null" json:"redirect_uri"`
+	Scope               string     `gorm:"type:text;not null" json:"scope"`
+	State               string     `gorm:"size:255;not null" json:"state"`
+	Nonce               string     `gorm:"size:255" json:"nonce"`
+	CodeChallenge       string     `gorm:"size:255;not null" json:"-"`
+	CodeChallengeMethod string     `gorm:"size:32;not null" json:"-"`
+	ExpiresAt           time.Time  `gorm:"index;not null" json:"expires_at"`
+	ConsumedAt          *time.Time `json:"consumed_at"`
+	CreatedAt           time.Time  `json:"created_at"`
+}
+
+type AccessToken struct {
+	ID        string     `gorm:"primaryKey;size:36" json:"id"`
+	TokenHash string     `gorm:"size:128;uniqueIndex;not null" json:"-"`
+	ClientID  string     `gorm:"size:120;index;not null" json:"client_id"`
+	UserID    string     `gorm:"size:36;index;not null" json:"user_id"`
+	Scope     string     `gorm:"type:text;not null" json:"scope"`
+	ExpiresAt time.Time  `gorm:"index;not null" json:"expires_at"`
+	RevokedAt *time.Time `json:"revoked_at"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+}
+
+type RefreshToken struct {
+	ID            string     `gorm:"primaryKey;size:36" json:"id"`
+	TokenHash     string     `gorm:"size:128;uniqueIndex;not null" json:"-"`
+	AccessTokenID string     `gorm:"size:36;index;not null" json:"access_token_id"`
+	ClientID      string     `gorm:"size:120;index;not null" json:"client_id"`
+	UserID        string     `gorm:"size:36;index;not null" json:"user_id"`
+	Scope         string     `gorm:"type:text;not null" json:"scope"`
+	ExpiresAt     time.Time  `gorm:"index;not null" json:"expires_at"`
+	RevokedAt     *time.Time `json:"revoked_at"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+}
+
+type UserSession struct {
+	ID               string     `gorm:"primaryKey;size:36" json:"id"`
+	SessionTokenHash string     `gorm:"size:128;uniqueIndex;not null" json:"-"`
+	UserID           string     `gorm:"size:36;index;not null" json:"user_id"`
+	IPAddress        string     `gorm:"size:64" json:"ip_address"`
+	UserAgent        string     `gorm:"size:255" json:"user_agent"`
+	LastSeenAt       time.Time  `gorm:"not null" json:"last_seen_at"`
+	ExpiresAt        time.Time  `gorm:"index;not null" json:"expires_at"`
+	RevokedAt        *time.Time `json:"revoked_at"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+}
+
+type AuditLog struct {
+	ID        string    `gorm:"primaryKey;size:36" json:"id"`
+	ActorID   string    `gorm:"size:36;index" json:"actor_id"`
+	Action    string    `gorm:"size:120;index;not null" json:"action"`
+	Target    string    `gorm:"size:255;not null" json:"target"`
+	IPAddress string    `gorm:"size:64" json:"ip_address"`
+	Metadata  string    `gorm:"type:text" json:"metadata"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (client OAuthClient) RedirectURIs() []string {
+	return splitLines(client.RedirectURIsRaw)
+}
+
+func (client *OAuthClient) SetRedirectURIs(values []string) {
+	client.RedirectURIsRaw = strings.Join(normalizeList(values), "\n")
+}
+
+func (client OAuthClient) Scopes() []string {
+	return splitScopes(client.ScopesRaw)
+}
+
+func (client *OAuthClient) SetScopes(values []string) {
+	client.ScopesRaw = strings.Join(normalizeList(values), " ")
+}
+
+func splitLines(value string) []string {
+	parts := strings.Split(value, "\n")
+	return normalizeList(parts)
+}
+
+func splitScopes(value string) []string {
+	value = strings.ReplaceAll(value, ",", " ")
+	parts := strings.Fields(value)
+	return normalizeList(parts)
+}
+
+func normalizeList(values []string) []string {
+	items := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		items = append(items, trimmed)
+	}
+	return items
+}

@@ -1,0 +1,13 @@
+.DS_Store
+node_modules/
+dist/
+.pnpm-store/
+coverage/
+.env
+.env.local
+.env.*.local
+server/.env
+web/.env
+examples/client-demo/.env
+server/bin/
+server/tmp/

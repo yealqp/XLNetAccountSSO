@@ -1,0 +1,92 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: sso-mysql
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_DATABASE: ${SSO_MYSQL_DATABASE:-sso_platform}
+      MYSQL_USER: ${SSO_MYSQL_USER:-sso_app}
+      MYSQL_PASSWORD: ${SSO_MYSQL_PASSWORD:-sso_app}
+      MYSQL_ROOT_PASSWORD: ${SSO_MYSQL_ROOT_PASSWORD:-root}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: sso-server
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      APP_NAME: XLNetAccount
+      PORT: 8080
+      SERVER_BASE_URL: ${SSO_SERVER_BASE_URL:-http://localhost:8080}
+      WEB_BASE_URL: ${SSO_WEB_BASE_URL:-http://localhost:5173}
+      OIDC_ISSUER: ${SSO_OIDC_ISSUER:-}
+      OIDC_KEY_ID: ${SSO_OIDC_KEY_ID:-}
+      OIDC_PRIVATE_KEY_PEM: ${SSO_OIDC_PRIVATE_KEY_PEM:-}
+      CORS_ORIGINS: ${SSO_CORS_ORIGINS:-http://localhost:5173,http://localhost:4173}
+      COOKIE_NAME: sso_session
+      COOKIE_SECURE: "false"
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${SSO_MYSQL_USER:-sso_app}
+      DB_PASSWORD: ${SSO_MYSQL_PASSWORD:-sso_app}
+      DB_NAME: ${SSO_MYSQL_DATABASE:-sso_platform}
+      SEED_ADMIN_USERNAME: ${SSO_ADMIN_USERNAME:-admin}
+      SEED_ADMIN_PASSWORD: ${SSO_ADMIN_PASSWORD:-Admin123!}
+      SEED_ADMIN_DISPLAY_NAME: ${SSO_ADMIN_DISPLAY_NAME:-Platform Admin}
+      SEED_ADMIN_EMAIL: ${SSO_ADMIN_EMAIL:-admin@example.com}
+      SEED_DEMO_CLIENT_NAME: ${SSO_DEMO_CLIENT_NAME:-Demo Client}
+      SEED_DEMO_CLIENT_ID: ${SSO_DEMO_CLIENT_ID:-demo-web-client}
+      SEED_DEMO_CLIENT_REDIRECT_URI: ${SSO_DEMO_REDIRECT_URI:-http://localhost:4173/callback}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    container_name: sso-web
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "5173:80"
+
+  client-demo:
+    build:
+      context: .
+      dockerfile: examples/client-demo/Dockerfile
+      args:
+        VITE_AUTH_BASE_URL: ${SSO_SERVER_BASE_URL:-http://localhost:8080}
+        VITE_CLIENT_ID: ${SSO_DEMO_CLIENT_ID:-demo-web-client}
+    container_name: sso-client-demo
+    restart: unless-stopped
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "4173:80"
+
+volumes:
+  mysql_data:
