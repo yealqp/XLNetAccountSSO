@@ -2,9 +2,9 @@ import path from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 
 import vue from '@vitejs/plugin-vue'
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type ConfigEnv } from 'vite'
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode }: ConfigEnv) => {
   const env = loadEnv(mode, process.cwd(), '')
   const apiTarget = env.VITE_API_BASE_URL || 'http://localhost:8080'
   const srcPath = fileURLToPath(new URL('./src', import.meta.url))
@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
     plugins: [vue({
 		template: {
 			compilerOptions: {
-				isCustomElement: tag => tag.startsWith('cap-'),
+				isCustomElement: (tag: string) => tag.startsWith('cap-'),
 			},
 		},
 	})],
@@ -22,6 +22,10 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(srcPath),
       },
     },
+    build: {
+		outDir: '../server/internal/app/web-dist',
+		emptyOutDir: true,
+	},
     server: {
       port: 5173,
       proxy: {

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xianlin-network/sso-platform/server/internal/config"
-	"github.com/xianlin-network/sso-platform/server/internal/model"
-	"github.com/xianlin-network/sso-platform/server/internal/pkg/security"
-	"github.com/xianlin-network/sso-platform/server/internal/repository"
+	"github.com/XianLinNet/XLNetAccount/internal/config"
+	"github.com/XianLinNet/XLNetAccount/internal/model"
+	"github.com/XianLinNet/XLNetAccount/internal/pkg/security"
+	"github.com/XianLinNet/XLNetAccount/internal/repository"
 )
 
 type CreateClientInput struct {
@@ -64,6 +64,7 @@ const (
 	settingSMTPTLS           = "smtp_tls"
 	settingCAPAPIEndpoint    = "cap_api_endpoint"
 	settingCAPSecretKey      = "cap_secret_key"
+	settingWebIconURL        = "web_icon_url"
 )
 
 type PlatformSettings struct {
@@ -76,6 +77,7 @@ type PlatformSettings struct {
 	SMTPTLS           bool   `json:"smtp_tls"`
 	CAPAPIEndpoint    string `json:"cap_api_endpoint"`
 	CAPSecretKey      string `json:"cap_secret_key"`
+	WebIconURL        string `json:"web_icon_url"`
 }
 
 type TestEmailInput struct {
@@ -118,10 +120,15 @@ func (service *AdminService) PublicSettings(ctx context.Context) (map[string]any
 	if err != nil {
 		return nil, err
 	}
+	if resolvedIconURL, syncErr := SyncWebIconURL(ctx, service.cfg, settings.WebIconURL); syncErr == nil && resolvedIconURL != settings.WebIconURL {
+		settings.WebIconURL = resolvedIconURL
+		_ = service.store.SavePlatformSetting(ctx, &model.PlatformSetting{Key: settingWebIconURL, Value: resolvedIconURL})
+	}
 	return map[string]any{
 		"platform_name":      settings.PlatformName,
 		"allow_registration": settings.AllowRegistration,
 		"cap_api_endpoint":   settings.CAPAPIEndpoint,
+		"web_icon_url":       settings.WebIconURL,
 	}, nil
 }
 
@@ -153,6 +160,11 @@ func (service *AdminService) UpdatePlatformSettings(ctx context.Context, input P
 		settingCAPAPIEndpoint:    strings.TrimSpace(input.CAPAPIEndpoint),
 		settingCAPSecretKey:      strings.TrimSpace(input.CAPSecretKey),
 	}
+	webIconURL, err := NormalizeWebIconURL(ctx, service.cfg, input.WebIconURL)
+	if err != nil {
+		return PlatformSettings{}, err
+	}
+	settings[settingWebIconURL] = webIconURL
 	for key, value := range settings {
 		if err := service.store.SavePlatformSetting(ctx, &model.PlatformSetting{Key: key, Value: value}); err != nil {
 			return PlatformSettings{}, err
@@ -180,6 +192,14 @@ func (service *AdminService) SendTestEmail(ctx context.Context, input TestEmailI
 	subject := platformName + " 邮件测试"
 	body := "这是一封来自 " + platformName + " 的测试邮件。\n\n如果您收到此邮件，说明当前 SMTP 配置可正常发送。"
 	return sendSMTPMail(settings, to, subject, body)
+}
+
+func (service *AdminService) UploadWebIcon(ctx context.Context, fileHeader *multipart.FileHeader) (map[string]any, error) {
+	iconURL, err := StoreUploadedWebIcon(ctx, service.cfg, fileHeader)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"web_icon_url": iconURL}, nil
 }
 
 func (service *AdminService) Overview(ctx context.Context) (repository.Overview, error) {
@@ -604,6 +624,10 @@ func (service *AdminService) loadPlatformSettings(ctx context.Context) (Platform
 	if err != nil {
 		return PlatformSettings{}, err
 	}
+	webIconURL, err := service.settingValue(ctx, settingWebIconURL, "")
+	if err != nil {
+		return PlatformSettings{}, err
+	}
 	return PlatformSettings{
 		PlatformName:      platformName,
 		AllowRegistration: parseBoolString(allowRegistration),
@@ -614,6 +638,7 @@ func (service *AdminService) loadPlatformSettings(ctx context.Context) (Platform
 		SMTPTLS:           parseBoolString(smtpTLS),
 		CAPAPIEndpoint:    capAPIEndpoint,
 		CAPSecretKey:      capSecretKey,
+		WebIconURL:        webIconURL,
 	}, nil
 }
 

@@ -1,4 +1,5 @@
 import { getAuthToken } from '@/utils/authToken'
+import { handleUnauthorizedRedirect } from '@/utils/authExpiry'
 
 export class ApiError extends Error {
   status: number
@@ -47,6 +48,9 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
 
   if (!response.ok) {
     const message = envelope?.message || (typeof data?.message === 'string' ? data.message : 'Request failed')
+    if (response.status === 401) {
+      void handleUnauthorizedRedirect()
+    }
     throw new ApiError(message, response.status, envelope?.data ?? data)
   }
 

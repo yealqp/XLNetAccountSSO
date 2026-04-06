@@ -5,8 +5,9 @@
   "scripts": {
     "dev:web": "pnpm --filter @sso/web dev",
     "build:web": "pnpm --filter @sso/web build",
+    "build:server": "go -C server build ./cmd/sso",
+    "build:server:embed": "pnpm --filter @sso/web build && go -C server build ./cmd/sso",
     "docker:all": "docker compose up --build -d",
-    "docker:web": "docker compose up --build -d web",
     "docker:server": "docker compose up --build -d server"
   }
 }

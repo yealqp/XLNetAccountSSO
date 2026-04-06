@@ -31,7 +31,7 @@ func Load() Config {
 	}
 
 	serverBaseURL := strings.TrimRight(getEnv("SERVER_BASE_URL", "http://localhost:8080"), "/")
-	webBaseURL := strings.TrimRight(getEnv("WEB_BASE_URL", "http://localhost:5173"), "/")
+	webBaseURL := strings.TrimRight(getEnv("WEB_BASE_URL", serverBaseURL), "/")
 
 	return Config{
 		AppName:           getEnv("APP_NAME", "XLNetAccount"),

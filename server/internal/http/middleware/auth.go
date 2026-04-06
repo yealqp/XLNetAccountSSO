@@ -5,9 +5,9 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/XianLinNet/XLNetAccount/internal/model"
+	"github.com/XianLinNet/XLNetAccount/internal/service"
 	"github.com/gofiber/fiber/v2"
-	"github.com/xianlin-network/sso-platform/server/internal/model"
-	"github.com/xianlin-network/sso-platform/server/internal/service"
 )
 
 const authContextKey = "auth_context"

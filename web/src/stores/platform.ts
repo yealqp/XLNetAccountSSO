@@ -9,6 +9,7 @@ export const usePlatformStore = defineStore('platform', () => {
 	const platformName = shallowRef(fallbackPlatformName)
 	const allowRegistration = shallowRef(false)
 	const capApiEndpoint = shallowRef('')
+	const webIconURL = shallowRef('')
 	const ready = shallowRef(false)
 
 	const displayName = computed(() => platformName.value || fallbackPlatformName)
@@ -45,6 +46,7 @@ export const usePlatformStore = defineStore('platform', () => {
 		smtp_tls: boolean
 		cap_api_endpoint: string
 		cap_secret_key: string
+		web_icon_url: string
 	}) {
 		const response = await updatePlatformSettings(payload)
 		applyPublicSettings(response)
@@ -52,10 +54,11 @@ export const usePlatformStore = defineStore('platform', () => {
 		return response
 	}
 
-	function applyPublicSettings(value: { platform_name: string; allow_registration?: boolean; cap_api_endpoint?: string }) {
+	function applyPublicSettings(value: { platform_name: string; allow_registration?: boolean; cap_api_endpoint?: string; web_icon_url?: string }) {
 		setPlatformName(value.platform_name)
 		allowRegistration.value = Boolean(value.allow_registration)
 		capApiEndpoint.value = value.cap_api_endpoint?.trim() || ''
+		setWebIcon(value.web_icon_url)
 	}
 
 	function setPlatformName(value: string) {
@@ -65,10 +68,29 @@ export const usePlatformStore = defineStore('platform', () => {
 		}
 	}
 
+	function setWebIcon(value?: string) {
+		webIconURL.value = value?.trim() || ''
+		if (typeof document === 'undefined') {
+			return
+		}
+		let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+		if (!link) {
+			link = document.createElement('link')
+			link.rel = 'icon'
+			document.head.appendChild(link)
+		}
+		if (webIconURL.value) {
+			link.href = webIconURL.value
+		} else {
+			link.removeAttribute('href')
+		}
+	}
+
 	return {
 		platformName,
 		allowRegistration,
 		capApiEndpoint,
+		webIconURL,
 		displayName,
 		ready,
 		ensureLoaded,

@@ -5,7 +5,7 @@ An OAuth2-compatible SSO starter built with Vue 3, Naive UI, TypeScript, Vue Rou
 ## Projects
 
 - `web/`: authorization UI and admin console
-- `server/`: OAuth2-compatible authorization server
+- `server/`: OAuth2-compatible authorization server, also serves the built frontend
 
 ## Local development
 
@@ -18,9 +18,11 @@ An OAuth2-compatible SSO starter built with Vue 3, Naive UI, TypeScript, Vue Rou
    - `pnpm install`
 4. Fetch Go dependencies
    - `go mod tidy` inside `server/`
-5. Run projects
+5. Build frontend assets for embedding
+   - `pnpm --filter @sso/web build`
+6. Run projects
    - `go run ./cmd/sso` inside `server/`
-   - `pnpm --filter @sso/web dev`
+   - Optional separate frontend dev server: `pnpm --filter @sso/web dev`
 
 ## First-run setup
 
@@ -35,15 +37,14 @@ The repository now includes a full Docker stack for MySQL, the Fiber server, and
 ### Services
 
 - `mysql`: MySQL 8.4 with a persisted volume
-- `server`: Go Fiber OAuth2 authorization server on `http://localhost:8080`
-- `web`: Naive UI dark-theme admin/auth frontend on `http://localhost:5173`
+- `server`: Go Fiber OAuth2 authorization server with embedded frontend on `http://localhost:8080`
 
 ### Start the full stack
 
 1. Build and start everything
    - `docker compose up --build -d`
 2. Follow logs if needed
-   - `docker compose logs -f server web`
+   - `docker compose logs -f server`
 3. Stop everything
    - `docker compose down`
 4. Stop and remove MySQL data
@@ -65,5 +66,6 @@ If you want to change host URLs, database credentials, or seeded account values 
 
 ### Notes
 
-- `web` uses Nginx to serve the built Vue app and reverse proxy `/api`, `/oauth`, and `/healthz` to the Fiber container.
-- The Docker stack is configured for local development-style URLs, so `SERVER_BASE_URL` and `WEB_BASE_URL` already match the exposed host ports.
+- `pnpm --filter @sso/web build` writes the frontend bundle into `server/internal/app/web-dist/`, and the Go server embeds that directory into the final binary.
+- The Docker server image builds the frontend first, then compiles a single backend binary with embedded assets.
+- The Docker stack is configured for local development-style URLs and OIDC can be enabled through the OIDC-related environment variables in the example files.

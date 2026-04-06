@@ -14,9 +14,9 @@ import (
 
 	"crypto/tls"
 
-	"github.com/xianlin-network/sso-platform/server/internal/model"
-	"github.com/xianlin-network/sso-platform/server/internal/pkg/security"
-	"github.com/xianlin-network/sso-platform/server/internal/repository"
+	"github.com/XianLinNet/XLNetAccount/internal/model"
+	"github.com/XianLinNet/XLNetAccount/internal/pkg/security"
+	"github.com/XianLinNet/XLNetAccount/internal/repository"
 )
 
 const (

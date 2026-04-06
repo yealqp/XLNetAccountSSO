@@ -22,7 +22,7 @@ export function register(payload: { username: string; email: string; password: s
 
 export function updateProfile(payload: { username: string; password: string; code: string }) {
 	return request<SessionResponse>('/api/me/profile', {
-		method: 'PUT',
+		method: 'POST',
 		body: JSON.stringify(payload),
 	})
 }

@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/XianLinNet/XLNetAccount/internal/config"
+	"github.com/XianLinNet/XLNetAccount/internal/http/handlers"
+	"github.com/XianLinNet/XLNetAccount/internal/http/middleware"
+	"github.com/XianLinNet/XLNetAccount/internal/repository"
+	"github.com/XianLinNet/XLNetAccount/internal/service"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/xianlin-network/sso-platform/server/internal/config"
-	"github.com/xianlin-network/sso-platform/server/internal/http/handlers"
-	"github.com/xianlin-network/sso-platform/server/internal/http/middleware"
-	"github.com/xianlin-network/sso-platform/server/internal/repository"
-	"github.com/xianlin-network/sso-platform/server/internal/service"
 	"gorm.io/gorm"
 )
 
@@ -43,7 +43,7 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: joinOrigins(cfg.AllowedOrigins),
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
-		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+		AllowMethods: "GET,POST,OPTIONS",
 	}))
 	app.Use(middleware.OptionalSession(authService))
 
@@ -51,6 +51,7 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
 	app.Static("/client-icons", service.ClientIconDir(cfg))
+	app.Static("/web-icon", service.WebIconDir(cfg))
 
 	app.Get("/.well-known/openid-configuration", oauthHandler.OpenIDConfiguration)
 	app.Get("/.well-known/jwks.json", oauthHandler.JWKS)
@@ -73,33 +74,38 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	secured := api.Group("", middleware.RequireSession(authService))
 	secured.Get("/me", adminHandler.Me)
 	secured.Post("/me/password/code/send", authHandler.SendProfilePasswordCode)
-	secured.Put("/me/profile", authHandler.UpdateProfile)
+	secured.Post("/me/profile", authHandler.UpdateProfile)
 	secured.Get("/overview", adminHandler.Overview)
 	secured.Post("/client-icons/upload", adminHandler.UploadClientIcon)
 	secured.Get("/oauth/requests/preview", oauthHandler.Preview)
 	secured.Post("/oauth/requests/decision", oauthHandler.Decide)
 	secured.Get("/clients", adminHandler.ListClients)
 	secured.Post("/clients", adminHandler.CreateClient)
-	secured.Put("/clients/:id", adminHandler.UpdateClient)
-	secured.Delete("/clients/:id", adminHandler.DeleteClient)
+	secured.Post("/clients/:id/update", adminHandler.UpdateClient)
+	secured.Post("/clients/:id/delete", adminHandler.DeleteClient)
 	secured.Get("/tokens", adminHandler.ListTokens)
-	secured.Delete("/tokens/access/:id", adminHandler.RevokeAccessToken)
-	secured.Delete("/tokens/refresh/:id", adminHandler.RevokeRefreshToken)
-	secured.Delete("/tokens/client/:clientId", adminHandler.RevokeClientTokens)
+	secured.Post("/tokens/access/:id/revoke", adminHandler.RevokeAccessToken)
+	secured.Post("/tokens/refresh/:id/revoke", adminHandler.RevokeRefreshToken)
+	secured.Post("/tokens/client/:clientId/revoke", adminHandler.RevokeClientTokens)
 
 	admin := secured.Group("", middleware.RequireAdmin())
 	admin.Get("/manage/overview", adminHandler.AdminOverview)
 	admin.Get("/settings/platform", adminHandler.PlatformSettings)
-	admin.Put("/settings/platform", adminHandler.UpdatePlatformSettings)
+	admin.Post("/settings/platform", adminHandler.UpdatePlatformSettings)
+	admin.Post("/settings/platform/icon/upload", adminHandler.UploadWebIcon)
 	admin.Post("/settings/platform/test-email", adminHandler.SendTestEmail)
 	admin.Get("/manage/clients", adminHandler.ListManagedClients)
-	admin.Put("/manage/clients/:id", adminHandler.UpdateManagedClient)
-	admin.Delete("/manage/clients/:id", adminHandler.DeleteManagedClient)
+	admin.Post("/manage/clients/:id/update", adminHandler.UpdateManagedClient)
+	admin.Post("/manage/clients/:id/delete", adminHandler.DeleteManagedClient)
 	admin.Get("/users", adminHandler.ListUsers)
 	admin.Post("/users", adminHandler.CreateUser)
-	admin.Put("/users/:id", adminHandler.UpdateUser)
-	admin.Delete("/users/:id", adminHandler.DeleteUser)
+	admin.Post("/users/:id/update", adminHandler.UpdateUser)
+	admin.Post("/users/:id/delete", adminHandler.DeleteUser)
 	admin.Get("/manage/tokens", adminHandler.ListManagedTokens)
+
+	if err := registerEmbeddedFrontend(app); err != nil {
+		return nil, fmt.Errorf("register embedded frontend: %w", err)
+	}
 
 	return app, nil
 }

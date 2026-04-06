@@ -5,9 +5,9 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/XianLinNet/XLNetAccount/internal/http/middleware"
+	"github.com/XianLinNet/XLNetAccount/internal/service"
 	"github.com/gofiber/fiber/v2"
-	"github.com/xianlin-network/sso-platform/server/internal/http/middleware"
-	"github.com/xianlin-network/sso-platform/server/internal/service"
 )
 
 type AdminHandler struct {
@@ -127,6 +127,18 @@ func (handler *AdminHandler) UploadClientIcon(c *fiber.Ctx) error {
 	result, err := handler.adminService.UploadClientIcon(context.Background(), fileHeader)
 	if err != nil {
 		return handleServiceError(c, err, "upload client icon failed")
+	}
+	return writeSuccess(c, fiber.StatusCreated, result, "success")
+}
+
+func (handler *AdminHandler) UploadWebIcon(c *fiber.Ctx) error {
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return writeError(c, fiber.StatusBadRequest, "请选择要上传的图标文件")
+	}
+	result, err := handler.adminService.UploadWebIcon(context.Background(), fileHeader)
+	if err != nil {
+		return handleServiceError(c, err, "upload web icon failed")
 	}
 	return writeSuccess(c, fiber.StatusCreated, result, "success")
 }

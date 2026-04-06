@@ -1,8 +1,8 @@
 package handlers
 
 import (
+	"github.com/XianLinNet/XLNetAccount/internal/model"
 	"github.com/gofiber/fiber/v2"
-	"github.com/xianlin-network/sso-platform/server/internal/model"
 )
 
 func writeError(c *fiber.Ctx, status int, message string) error {

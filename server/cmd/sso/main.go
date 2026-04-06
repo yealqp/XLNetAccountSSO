@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/XianLinNet/XLNetAccount/internal/app"
+	"github.com/XianLinNet/XLNetAccount/internal/config"
+	"github.com/XianLinNet/XLNetAccount/internal/model"
 	_ "github.com/joho/godotenv/autoload"
-	"github.com/xianlin-network/sso-platform/server/internal/app"
-	"github.com/xianlin-network/sso-platform/server/internal/config"
-	"github.com/xianlin-network/sso-platform/server/internal/model"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )

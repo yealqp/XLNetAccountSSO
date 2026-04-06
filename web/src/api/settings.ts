@@ -10,6 +10,7 @@ export interface PlatformSettingsResponse {
 	smtp_tls?: boolean
 	cap_api_endpoint?: string
 	cap_secret_key?: string
+	web_icon_url?: string
 }
 
 export function fetchPublicSettings() {
@@ -22,7 +23,7 @@ export function fetchPlatformSettings() {
 
 export function updatePlatformSettings(payload: PlatformSettingsResponse) {
 	return request<PlatformSettingsResponse>('/api/settings/platform', {
-		method: 'PUT',
+		method: 'POST',
 		body: JSON.stringify(payload),
 	})
 }
@@ -38,5 +39,15 @@ export function sendTestEmail(payload: {
 	return request<{ sent: boolean }>('/api/settings/platform/test-email', {
 		method: 'POST',
 		body: JSON.stringify(payload),
+	})
+}
+
+export function uploadWebIcon(file: File) {
+	const formData = new FormData()
+	formData.append('file', file)
+
+	return request<{ web_icon_url: string }>('/api/settings/platform/icon/upload', {
+		method: 'POST',
+		body: formData,
 	})
 }

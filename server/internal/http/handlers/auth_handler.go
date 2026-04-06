@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/XianLinNet/XLNetAccount/internal/http/middleware"
+	"github.com/XianLinNet/XLNetAccount/internal/service"
 	"github.com/gofiber/fiber/v2"
-	"github.com/xianlin-network/sso-platform/server/internal/http/middleware"
-	"github.com/xianlin-network/sso-platform/server/internal/service"
 )
 
 type AuthHandler struct {

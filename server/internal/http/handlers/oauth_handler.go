@@ -5,10 +5,10 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/XianLinNet/XLNetAccount/internal/config"
+	"github.com/XianLinNet/XLNetAccount/internal/http/middleware"
+	"github.com/XianLinNet/XLNetAccount/internal/service"
 	"github.com/gofiber/fiber/v2"
-	"github.com/xianlin-network/sso-platform/server/internal/config"
-	"github.com/xianlin-network/sso-platform/server/internal/http/middleware"
-	"github.com/xianlin-network/sso-platform/server/internal/service"
 )
 
 type OAuthHandler struct {

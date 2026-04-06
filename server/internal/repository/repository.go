@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/xianlin-network/sso-platform/server/internal/model"
+	"github.com/XianLinNet/XLNetAccount/internal/model"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

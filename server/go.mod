@@ -1,4 +1,4 @@
-module github.com/xianlin-network/sso-platform/server
+module github.com/XianLinNet/XLNetAccount
 
 go 1.25.0
 

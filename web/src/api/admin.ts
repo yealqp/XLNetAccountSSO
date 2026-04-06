@@ -28,28 +28,28 @@ export function createClient(payload: Record<string, unknown>) {
 }
 
 export function updateClient(id: string, payload: Record<string, unknown>) {
-	return request<OAuthClientRecord>(`/api/clients/${id}`, {
-		method: 'PUT',
+	return request<OAuthClientRecord>(`/api/clients/${id}/update`, {
+		method: 'POST',
 		body: JSON.stringify(payload),
 	})
 }
 
 export function updateManagedClient(id: string, payload: Record<string, unknown>) {
-	return request<OAuthClientRecord>(`/api/manage/clients/${id}`, {
-		method: 'PUT',
+	return request<OAuthClientRecord>(`/api/manage/clients/${id}/update`, {
+		method: 'POST',
 		body: JSON.stringify(payload),
 	})
 }
 
 export function deleteClient(id: string) {
-	return request<void>(`/api/clients/${id}`, {
-		method: 'DELETE',
+	return request<void>(`/api/clients/${id}/delete`, {
+		method: 'POST',
 	})
 }
 
 export function deleteManagedClient(id: string) {
-	return request<void>(`/api/manage/clients/${id}`, {
-		method: 'DELETE',
+	return request<void>(`/api/manage/clients/${id}/delete`, {
+		method: 'POST',
 	})
 }
 
@@ -76,16 +76,16 @@ export function createUser(payload: Record<string, unknown>) {
 }
 
 export function updateUser(id: number, payload: Record<string, unknown>) {
-  return request<UserRecord>(`/api/users/${id}`, {
-    method: 'PUT',
-    body: JSON.stringify(payload),
-  })
+	return request<UserRecord>(`/api/users/${id}/update`, {
+		method: 'POST',
+		body: JSON.stringify(payload),
+	})
 }
 
 export function deleteUser(id: number) {
-  return request<void>(`/api/users/${id}`, {
-    method: 'DELETE',
-  })
+	return request<void>(`/api/users/${id}/delete`, {
+		method: 'POST',
+	})
 }
 
 export async function fetchTokens() {
@@ -99,13 +99,13 @@ export async function fetchManagedTokens() {
 }
 
 export function revokeAccessToken(id: string) {
-  return request<void>(`/api/tokens/access/${id}`, { method: 'DELETE' })
+	return request<void>(`/api/tokens/access/${id}/revoke`, { method: 'POST' })
 }
 
 export function revokeRefreshToken(id: string) {
-  return request<void>(`/api/tokens/refresh/${id}`, { method: 'DELETE' })
+	return request<void>(`/api/tokens/refresh/${id}/revoke`, { method: 'POST' })
 }
 
 export function revokeClientTokens(clientId: string) {
-  return request<void>(`/api/tokens/client/${encodeURIComponent(clientId)}`, { method: 'DELETE' })
+	return request<void>(`/api/tokens/client/${encodeURIComponent(clientId)}/revoke`, { method: 'POST' })
 }

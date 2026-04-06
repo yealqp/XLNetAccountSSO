@@ -12,4 +12,4 @@ examples/client-demo/.env
 server/bin/
 server/tmp/
 server/data/
-hyw
+server/internal/app/web-dist
