@@ -5,10 +5,24 @@ export function getServerBaseUrl() {
   }
 
   if (typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}:8080`
+    return window.location.origin.replace(/\/$/, '')
   }
 
-  return 'http://localhost:8080'
+  return 'http://localhost'
+}
+
+export function resolveServerUrl(raw?: string) {
+  const value = raw?.trim() || ''
+  if (!value) {
+    return ''
+  }
+
+  if (/^https?:\/\//i.test(value) || value.startsWith('blob:') || value.startsWith('data:')) {
+    return value
+  }
+
+  const baseUrl = getServerBaseUrl()
+  return new URL(value.replace(/^\/+/, '/'), `${baseUrl}/`).toString()
 }
 
 export function getConnectionInfo() {

@@ -5,7 +5,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, shallowRef } from 'vue'
 
 import { ApiError } from '@/api/http'
 import { sendTestEmail, uploadWebIcon } from '@/api/settings'
-import { getServerBaseUrl } from '@/config/endpoints'
+import { resolveServerUrl } from '@/config/endpoints'
 import { usePlatformStore } from '@/stores/platform'
 
 const message = useMessage()
@@ -35,15 +35,7 @@ const previewIconUrl = computed(() => {
   if (localPreviewUrl.value) {
     return localPreviewUrl.value
   }
-  const raw = formState.webIconUrl.trim()
-  if (!raw) {
-    return ''
-  }
-  if (/^https?:\/\//i.test(raw) || raw.startsWith('blob:') || raw.startsWith('data:')) {
-    return raw
-  }
-  const baseUrl = getServerBaseUrl()
-  return new URL(raw.replace(/^\/+/, '/'), `${baseUrl}/`).toString()
+  return resolveServerUrl(formState.webIconUrl)
 })
 
 onMounted(async () => {

@@ -19,6 +19,7 @@ import { useRoute } from 'vue-router'
 import { ApiError } from '@/api/http'
 import { deleteClient, deleteManagedClient, fetchClients, fetchManagedClients } from '@/api/admin'
 import ClientFormDrawer from '@/components/admin/ClientFormDrawer.vue'
+import { resolveServerUrl } from '@/config/endpoints'
 import type { OAuthClientRecord } from '@/types/api'
 
 const message = useMessage()
@@ -142,7 +143,7 @@ function openSecretDialog(secret: string) {
             <tr v-for="client in clients" :key="client.id">
               <td>
                 <div class="client-name-cell">
-                  <NAvatar :size="28" :src="client.icon_url || undefined" :round="false" class="client-avatar">
+                  <NAvatar :size="28" :src="resolveServerUrl(client.icon_url) || undefined" :round="false" class="client-avatar">
                     {{ client.name.charAt(0).toUpperCase() }}
                   </NAvatar>
                   <div>

@@ -21,7 +21,7 @@ import { computed, onBeforeUnmount, reactive, shallowRef, watch } from 'vue'
 
 import { createClient, updateClient, updateManagedClient, uploadClientIcon } from '@/api/admin'
 import { ApiError } from '@/api/http'
-import { getServerBaseUrl } from '@/config/endpoints'
+import { resolveServerUrl } from '@/config/endpoints'
 import { defaultScopeKeys, scopeOptions } from '@/constants/scopes'
 import { useViewport } from '@/composables/useViewport'
 import type { OAuthClientRecord } from '@/types/api'
@@ -60,17 +60,7 @@ const previewIconUrl = computed(() => {
     return localPreviewUrl.value
   }
 
-  const raw = formState.iconUrl.trim()
-  if (!raw) {
-    return ''
-  }
-
-  if (/^https?:\/\//i.test(raw) || raw.startsWith('blob:') || raw.startsWith('data:')) {
-    return raw
-  }
-
-  const baseUrl = getServerBaseUrl()
-  return new URL(raw.replace(/^\/+/, '/'), `${baseUrl}/`).toString()
+  return resolveServerUrl(formState.iconUrl)
 })
 const previewInitial = computed(() => (formState.name.trim().charAt(0) || 'C').toUpperCase())
 

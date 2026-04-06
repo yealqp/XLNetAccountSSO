@@ -17,6 +17,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/api/http'
 import { decideAuthorization, previewAuthorization } from '@/api/oauth'
 import { useViewport } from '@/composables/useViewport'
+import { resolveServerUrl } from '@/config/endpoints'
 import type { AuthorizationPreview } from '@/types/api'
 
 const route = useRoute()
@@ -35,6 +36,7 @@ const clientInitial = computed(() => (preview.value?.client.name?.trim().charAt(
 const clientTitle = computed(() => preview.value ? `${preview.value.client.name} 请求使用您的信息` : '授权确认')
 const clientSubtitle = computed(() => preview.value?.client.description?.trim() || '该应用希望获取以下信息。')
 const hasClientIcon = computed(() => Boolean(preview.value?.client.icon_url?.trim()))
+const resolvedClientIconUrl = computed(() => resolveServerUrl(preview.value?.client.icon_url))
 const consentHint = computed(() => {
   if (!preview.value) {
     return ''
@@ -136,7 +138,7 @@ function getQueryValue(key: string) {
             <p class="auth-panel-kicker">授权确认</p>
             <img
               v-if="hasClientIcon"
-              :src="preview.client.icon_url"
+              :src="resolvedClientIconUrl"
               :alt="preview.client.name"
               class="client-avatar client-avatar-image"
             >

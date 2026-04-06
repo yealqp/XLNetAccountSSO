@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, shallowRef } from 'vue'
 
+import { resolveServerUrl } from '@/config/endpoints'
 import { fetchPlatformSettings, fetchPublicSettings, updatePlatformSettings } from '@/api/settings'
 
 const fallbackPlatformName = 'XLNetAccount'
@@ -80,7 +81,7 @@ export const usePlatformStore = defineStore('platform', () => {
 			document.head.appendChild(link)
 		}
 		if (webIconURL.value) {
-			link.href = webIconURL.value
+			link.href = resolveServerUrl(webIconURL.value)
 		} else {
 			link.removeAttribute('href')
 		}
