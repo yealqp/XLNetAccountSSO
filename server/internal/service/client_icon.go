@@ -156,7 +156,7 @@ func StoreUploadedClientIcon(ctx context.Context, cfg config.Config, fileHeader 
 		return "", fmt.Errorf("保存图标文件失败: %w", err)
 	}
 
-	return strings.TrimRight(cfg.ServerBaseURL, "/") + "/client-icons/uploads/" + fileName, nil
+	return cfg.PublicURL("/client-icons/uploads/" + fileName), nil
 }
 
 func StoreUploadedWebIcon(ctx context.Context, cfg config.Config, fileHeader *multipart.FileHeader) (string, error) {
@@ -189,7 +189,7 @@ func StoreUploadedWebIcon(ctx context.Context, cfg config.Config, fileHeader *mu
 		return "", fmt.Errorf("保存图标文件失败: %w", err)
 	}
 
-	return strings.TrimRight(cfg.ServerBaseURL, "/") + "/web-icon/uploads/" + fileName, nil
+	return cfg.PublicURL("/web-icon/uploads/" + fileName), nil
 }
 
 func downloadWebIcon(ctx context.Context, cfg config.Config, rawURL string) (string, error) {
@@ -232,7 +232,7 @@ func downloadWebIcon(ctx context.Context, cfg config.Config, rawURL string) (str
 		return "", fmt.Errorf("保存图标文件失败: %w", err)
 	}
 
-	return strings.TrimRight(cfg.ServerBaseURL, "/") + "/web-icon/" + fileName, nil
+	return cfg.PublicURL("/web-icon/" + fileName), nil
 }
 
 func downloadClientIcon(ctx context.Context, cfg config.Config, clientID string, rawURL string) (string, error) {
@@ -275,7 +275,7 @@ func downloadClientIcon(ctx context.Context, cfg config.Config, clientID string,
 		return "", fmt.Errorf("保存图标文件失败: %w", err)
 	}
 
-	return strings.TrimRight(cfg.ServerBaseURL, "/") + "/client-icons/" + fileName, nil
+	return cfg.PublicURL("/client-icons/" + fileName), nil
 }
 
 func validateClientIconData(data []byte, contentTypeHeader string) (string, error) {
@@ -301,7 +301,7 @@ func validateClientIconData(data []byte, contentTypeHeader string) (string, erro
 }
 
 func adoptUploadedClientIcon(cfg config.Config, clientID string, raw string) (string, error) {
-	uploadURLPrefix := strings.TrimRight(cfg.ServerBaseURL, "/") + "/client-icons/uploads/"
+	uploadURLPrefix := cfg.PublicURL("/client-icons/uploads/")
 	fileName := strings.TrimPrefix(strings.TrimSpace(raw), uploadURLPrefix)
 	if fileName == strings.TrimSpace(raw) || strings.Contains(fileName, "/") || strings.Contains(fileName, `\`) {
 		return "", fmt.Errorf("%w: 上传图标地址无效", ErrInvalidInput)
@@ -323,7 +323,7 @@ func adoptUploadedClientIcon(cfg config.Config, clientID string, raw string) (st
 	if err := os.Rename(sourcePath, targetPath); err != nil {
 		return "", fmt.Errorf("保存图标文件失败: %w", err)
 	}
-	return strings.TrimRight(cfg.ServerBaseURL, "/") + "/client-icons/" + targetName, nil
+	return cfg.PublicURL("/client-icons/" + targetName), nil
 }
 
 func removeClientIconFiles(cfg config.Config, clientID string) error {
@@ -373,29 +373,29 @@ func removeWebIconFiles(cfg config.Config) error {
 }
 
 func isBackendClientIconURL(cfg config.Config, raw string) bool {
-	prefix := strings.TrimRight(cfg.ServerBaseURL, "/") + "/client-icons/"
+	prefix := cfg.PublicURL("/client-icons/")
 	trimmed := strings.TrimSpace(raw)
 	return strings.HasPrefix(trimmed, prefix) && !isUploadedClientIconURL(cfg, trimmed)
 }
 
 func isUploadedClientIconURL(cfg config.Config, raw string) bool {
-	prefix := strings.TrimRight(cfg.ServerBaseURL, "/") + "/client-icons/uploads/"
+	prefix := cfg.PublicURL("/client-icons/uploads/")
 	return strings.HasPrefix(strings.TrimSpace(raw), prefix)
 }
 
 func isBackendWebIconURL(cfg config.Config, raw string) bool {
-	prefix := strings.TrimRight(cfg.ServerBaseURL, "/") + "/web-icon/"
+	prefix := cfg.PublicURL("/web-icon/")
 	trimmed := strings.TrimSpace(raw)
 	return strings.HasPrefix(trimmed, prefix) && !isUploadedWebIconURL(cfg, trimmed)
 }
 
 func isUploadedWebIconURL(cfg config.Config, raw string) bool {
-	prefix := strings.TrimRight(cfg.ServerBaseURL, "/") + "/web-icon/uploads/"
+	prefix := cfg.PublicURL("/web-icon/uploads/")
 	return strings.HasPrefix(strings.TrimSpace(raw), prefix)
 }
 
 func adoptUploadedWebIcon(cfg config.Config, raw string) (string, error) {
-	uploadURLPrefix := strings.TrimRight(cfg.ServerBaseURL, "/") + "/web-icon/uploads/"
+	uploadURLPrefix := cfg.PublicURL("/web-icon/uploads/")
 	fileName := strings.TrimPrefix(strings.TrimSpace(raw), uploadURLPrefix)
 	if fileName == strings.TrimSpace(raw) || strings.Contains(fileName, "/") || strings.Contains(fileName, `\`) {
 		return "", fmt.Errorf("%w: 上传图标地址无效", ErrInvalidInput)
@@ -417,5 +417,5 @@ func adoptUploadedWebIcon(cfg config.Config, raw string) (string, error) {
 	if err := os.Rename(sourcePath, targetPath); err != nil {
 		return "", fmt.Errorf("保存图标文件失败: %w", err)
 	}
-	return strings.TrimRight(cfg.ServerBaseURL, "/") + "/web-icon/" + targetName, nil
+	return cfg.PublicURL("/web-icon/" + targetName), nil
 }

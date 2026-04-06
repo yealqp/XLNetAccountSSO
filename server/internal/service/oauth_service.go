@@ -222,26 +222,28 @@ func (service *OAuthService) Introspect(ctx context.Context, rawToken string) (m
 }
 
 func (service *OAuthService) DiscoveryMetadata() map[string]any {
+	baseURL := service.cfg.BaseURL()
+	issuerURL := service.cfg.IssuerURL()
 	return map[string]any{
 		"claims_supported":                              []string{"sub", "iss", "aud", "exp", "iat", "nonce", "preferred_username", "name", "email", "roles"},
 		"claim_types_supported":                         []string{"normal"},
 		"code_challenge_methods_supported":              []string{"S256", "plain"},
 		"grant_types_supported":                         []string{"authorization_code", "refresh_token"},
 		"id_token_signing_alg_values_supported":         []string{"RS256"},
-		"introspection_endpoint":                        service.cfg.ServerBaseURL + "/oauth/introspect",
+		"introspection_endpoint":                        baseURL + "/oauth/introspect",
 		"introspection_endpoint_auth_methods_supported": []string{"none", "client_secret_basic", "client_secret_post"},
-		"issuer":                   service.cfg.OIDCIssuer,
-		"jwks_uri":                 service.cfg.ServerBaseURL + "/.well-known/jwks.json",
+		"issuer":                   issuerURL,
+		"jwks_uri":                 baseURL + "/.well-known/jwks.json",
 		"response_modes_supported": []string{"query"},
 		"response_types_supported": []string{"code"},
-		"revocation_endpoint":      service.cfg.ServerBaseURL + "/oauth/revoke",
+		"revocation_endpoint":      baseURL + "/oauth/revoke",
 		"revocation_endpoint_auth_methods_supported": []string{"none", "client_secret_basic", "client_secret_post"},
 		"scopes_supported":                           scopeKeys(ScopeDefinitions()),
 		"subject_types_supported":                    []string{"public"},
-		"token_endpoint":                             service.cfg.ServerBaseURL + "/oauth/token",
+		"token_endpoint":                             baseURL + "/oauth/token",
 		"token_endpoint_auth_methods_supported":      []string{"none", "client_secret_basic", "client_secret_post"},
-		"userinfo_endpoint":                          service.cfg.ServerBaseURL + "/oauth/userinfo",
-		"authorization_endpoint":                     service.cfg.ServerBaseURL + "/oauth/authorize",
+		"userinfo_endpoint":                          baseURL + "/oauth/userinfo",
+		"authorization_endpoint":                     baseURL + "/oauth/authorize",
 	}
 }
 
@@ -398,7 +400,7 @@ func (service *OAuthService) issueIDToken(ctx context.Context, clientID string, 
 		"aud": clientID,
 		"exp": issuedAt.Add(accessTokenLifetime).Unix(),
 		"iat": issuedAt.Unix(),
-		"iss": service.cfg.OIDCIssuer,
+		"iss": service.cfg.IssuerURL(),
 		"sub": user.ID,
 	}
 	if strings.TrimSpace(nonce) != "" {

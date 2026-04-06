@@ -66,3 +66,33 @@ func splitCSV(value string) []string {
 	}
 	return items
 }
+
+func (cfg Config) BaseURL() string {
+	baseURL := strings.TrimSpace(cfg.ServerBaseURL)
+	if baseURL == "" {
+		baseURL = "http://localhost"
+		if strings.TrimSpace(cfg.Port) != "" && strings.TrimSpace(cfg.Port) != "80" {
+			baseURL += ":" + strings.TrimSpace(cfg.Port)
+		}
+	}
+	return strings.TrimRight(baseURL, "/")
+}
+
+func (cfg Config) IssuerURL() string {
+	issuer := strings.TrimSpace(cfg.OIDCIssuer)
+	if issuer == "" {
+		return cfg.BaseURL()
+	}
+	return strings.TrimRight(issuer, "/")
+}
+
+func (cfg Config) PublicURL(path string) string {
+	trimmedPath := strings.TrimSpace(path)
+	if trimmedPath == "" {
+		return cfg.BaseURL()
+	}
+	if !strings.HasPrefix(trimmedPath, "/") {
+		trimmedPath = "/" + trimmedPath
+	}
+	return cfg.BaseURL() + trimmedPath
+}
