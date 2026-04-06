@@ -26,7 +26,6 @@ export const useSetupStore = defineStore('setup', () => {
 	async function completeSetup(payload: {
 		username: string
 		password: string
-		display_name: string
 		email: string
 	}) {
 		await initializeAdmin(payload)

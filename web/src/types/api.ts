@@ -1,7 +1,6 @@
 export interface UserSummary {
-  id: string
+  id: number
   username: string
-  display_name: string
   email: string
   role: string
   status: string
@@ -12,6 +11,12 @@ export interface UserSummary {
 export interface SessionResponse {
   authenticated: boolean
   user?: UserSummary
+}
+
+export interface AuthTokenResponse extends SessionResponse {
+  access_token: string
+  token_type: 'Bearer'
+  expires_in: number
 }
 
 export interface OverviewStats {
@@ -31,7 +36,8 @@ export interface OAuthClientRecord {
   redirect_uris: string[]
   scopes: string[]
   trusted: boolean
-  created_by: string
+  created_by: number
+  owner_username?: string
   created_at: string
   updated_at: string
   client_secret?: string
@@ -44,6 +50,8 @@ export interface TokenRecord {
   token_kind: 'access' | 'refresh'
   client_id: string
   client_name: string
+  user_id?: number
+  owner_username?: string
   scope: string
   status: 'active' | 'revoked' | 'expired'
   expires_at: string
@@ -71,9 +79,8 @@ export interface AuthorizationPreview {
     }>
   }
   user: {
-    id: string
+    id: number
     username: string
-    display_name: string
   }
   request: {
     response_type: string

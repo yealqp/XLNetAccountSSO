@@ -38,8 +38,6 @@ services:
       OIDC_KEY_ID: ${SSO_OIDC_KEY_ID:-}
       OIDC_PRIVATE_KEY_PEM: ${SSO_OIDC_PRIVATE_KEY_PEM:-}
       CORS_ORIGINS: ${SSO_CORS_ORIGINS:-http://localhost:5173}
-      COOKIE_NAME: sso_session
-      COOKIE_SECURE: "false"
       DB_HOST: mysql
       DB_PORT: 3306
       DB_USER: ${SSO_MYSQL_USER:-sso_app}

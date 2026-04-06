@@ -12,10 +12,12 @@ import {
   NTag,
   useMessage,
 } from 'naive-ui'
-import { computed, onMounted, shallowRef } from 'vue'
+import { computed, onMounted, shallowRef, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import {
   fetchTokens,
+  fetchManagedTokens,
   revokeAccessToken,
   revokeClientTokens,
   revokeRefreshToken,
@@ -32,9 +34,11 @@ interface TokenGroup {
 }
 
 const message = useMessage()
+const route = useRoute()
 const tokens = shallowRef<TokenRecord[]>([])
 const pendingActionKey = shallowRef('')
 const loadError = shallowRef('')
+const manageAll = computed(() => route.meta.manageScope === 'all')
 
 const stats = computed(() => ({
   active: tokens.value.filter(token => token.status === 'active').length,
@@ -71,11 +75,15 @@ onMounted(() => {
   void loadTokens()
 })
 
+watch(() => route.fullPath, () => {
+  void loadTokens()
+})
+
 async function loadTokens() {
   loadError.value = ''
 
   try {
-    tokens.value = await fetchTokens()
+    tokens.value = manageAll.value ? await fetchManagedTokens() : await fetchTokens()
   }
   catch (error) {
     loadError.value = error instanceof ApiError ? error.message : '加载令牌失败'
@@ -145,8 +153,8 @@ function isActionPending(actionKey: string) {
   <section class="page-stack">
     <header class="page-header">
       <div>
-        <h1 class="page-title">令牌控制</h1>
-        <p class="page-subtitle">查看并吊销 access / refresh token。</p>
+        <h1 class="page-title">{{ manageAll ? '令牌管理' : '令牌' }}</h1>
+        <p class="page-subtitle">{{ manageAll ? '查看全部令牌并执行吊销操作。' : '查看并吊销您当前账号的令牌。' }}</p>
       </div>
       <NButton tertiary @click="loadTokens">刷新列表</NButton>
     </header>
@@ -207,6 +215,7 @@ function isActionPending(actionKey: string) {
           <NTable striped>
             <thead>
               <tr>
+                <th v-if="manageAll">所属用户</th>
                 <th>类型</th>
                 <th>状态</th>
                 <th>Scope</th>
@@ -217,6 +226,7 @@ function isActionPending(actionKey: string) {
             </thead>
             <tbody>
               <tr v-for="token in group.items" :key="token.id">
+                <td v-if="manageAll">{{ token.owner_username || '-' }}</td>
                 <td>
                   <NTag size="small" :type="tokenKindType(token.token_kind)">
                     {{ token.token_kind }}

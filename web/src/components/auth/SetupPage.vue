@@ -21,7 +21,6 @@ const formState = reactive({
 	username: '',
 	password: '',
 	confirmPassword: '',
-	displayName: '',
 	email: '',
 })
 
@@ -40,7 +39,6 @@ async function handleSubmit() {
 		await setupStore.completeSetup({
 			username: formState.username,
 			password: formState.password,
-			display_name: formState.displayName,
 			email: formState.email,
 		})
 		await sessionStore.signIn({
@@ -81,13 +79,9 @@ function resolveNextTarget(nextValue: unknown) {
         <NInput v-model:value="formState.username" clearable placeholder="管理员用户名" size="large" @update:value="submitError = ''" />
       </NFormItem>
 
-      <NFormItem label="显示名称">
-        <NInput v-model:value="formState.displayName" clearable placeholder="管理员显示名称" size="large" @update:value="submitError = ''" />
-      </NFormItem>
-
-      <NFormItem label="邮箱">
-        <NInput v-model:value="formState.email" clearable placeholder="邮箱，可选" size="large" @update:value="submitError = ''" />
-      </NFormItem>
+		<NFormItem label="邮箱">
+		  <NInput v-model:value="formState.email" clearable placeholder="邮箱" size="large" @update:value="submitError = ''" />
+		</NFormItem>
 
       <NFormItem label="密码">
         <NInput

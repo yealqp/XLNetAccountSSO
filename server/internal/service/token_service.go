@@ -20,6 +20,9 @@ func NewTokenService(store *repository.Store) *TokenService {
 }
 
 func (service *TokenService) ListTokens(ctx context.Context, actor *model.User) ([]map[string]any, error) {
+	if actor == nil {
+		return nil, ErrUnauthorized
+	}
 	accessTokens, err := service.store.ListAccessTokensByUser(ctx, actor.ID)
 	if err != nil {
 		return nil, err
@@ -28,8 +31,30 @@ func (service *TokenService) ListTokens(ctx context.Context, actor *model.User) 
 	if err != nil {
 		return nil, err
 	}
+	return service.buildTokenItems(ctx, accessTokens, refreshTokens)
+}
 
+func (service *TokenService) ListAllTokens(ctx context.Context, actor *model.User) ([]map[string]any, error) {
+	if actor == nil || actor.Role != "admin" {
+		return nil, ErrForbidden
+	}
+	accessTokens, err := service.store.ListAccessTokens(ctx)
+	if err != nil {
+		return nil, err
+	}
+	refreshTokens, err := service.store.ListRefreshTokens(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return service.buildTokenItems(ctx, accessTokens, refreshTokens)
+}
+
+func (service *TokenService) buildTokenItems(ctx context.Context, accessTokens []model.AccessToken, refreshTokens []model.RefreshToken) ([]map[string]any, error) {
 	clientNames, err := service.clientNames(ctx, accessTokens, refreshTokens)
+	if err != nil {
+		return nil, err
+	}
+	ownerNames, err := service.userNames(ctx, accessTokens, refreshTokens)
 	if err != nil {
 		return nil, err
 	}
@@ -38,16 +63,18 @@ func (service *TokenService) ListTokens(ctx context.Context, actor *model.User) 
 	items := make([]map[string]any, 0, len(accessTokens)+len(refreshTokens))
 	for _, token := range accessTokens {
 		items = append(items, map[string]any{
-			"id":          token.ID,
-			"token_kind":  "access",
-			"client_id":   token.ClientID,
-			"client_name": clientNames[token.ClientID],
-			"scope":       token.Scope,
-			"status":      tokenStatus(token.RevokedAt, token.ExpiresAt, now),
-			"expires_at":  token.ExpiresAt,
-			"revoked_at":  token.RevokedAt,
-			"created_at":  token.CreatedAt,
-			"updated_at":  token.UpdatedAt,
+			"id":             token.ID,
+			"token_kind":     "access",
+			"client_id":      token.ClientID,
+			"client_name":    clientNames[token.ClientID],
+			"user_id":        token.UserID,
+			"owner_username": ownerNames[token.UserID],
+			"scope":          token.Scope,
+			"status":         tokenStatus(token.RevokedAt, token.ExpiresAt, now),
+			"expires_at":     token.ExpiresAt,
+			"revoked_at":     token.RevokedAt,
+			"created_at":     token.CreatedAt,
+			"updated_at":     token.UpdatedAt,
 		})
 	}
 	for _, token := range refreshTokens {
@@ -56,6 +83,8 @@ func (service *TokenService) ListTokens(ctx context.Context, actor *model.User) 
 			"token_kind":              "refresh",
 			"client_id":               token.ClientID,
 			"client_name":             clientNames[token.ClientID],
+			"user_id":                 token.UserID,
+			"owner_username":          ownerNames[token.UserID],
 			"scope":                   token.Scope,
 			"status":                  tokenStatus(token.RevokedAt, token.ExpiresAt, now),
 			"expires_at":              token.ExpiresAt,
@@ -143,11 +172,27 @@ func (service *TokenService) RevokeRefreshToken(ctx context.Context, actor *mode
 }
 
 func (service *TokenService) RevokeClientTokens(ctx context.Context, actor *model.User, clientID string) error {
-	accessTokens, err := service.store.ListAccessTokensByUserAndClient(ctx, actor.ID, clientID)
+	var (
+		accessTokens  []model.AccessToken
+		refreshTokens []model.RefreshToken
+		err           error
+	)
+	if actor == nil {
+		return ErrUnauthorized
+	}
+	if actor.Role == "admin" {
+		accessTokens, err = service.store.ListAccessTokensByClientID(ctx, clientID)
+	} else {
+		accessTokens, err = service.store.ListAccessTokensByUserAndClient(ctx, actor.ID, clientID)
+	}
 	if err != nil {
 		return err
 	}
-	refreshTokens, err := service.store.ListRefreshTokensByUserAndClient(ctx, actor.ID, clientID)
+	if actor.Role == "admin" {
+		refreshTokens, err = service.store.ListRefreshTokensByClientID(ctx, clientID)
+	} else {
+		refreshTokens, err = service.store.ListRefreshTokensByUserAndClient(ctx, actor.ID, clientID)
+	}
 	if err != nil {
 		return err
 	}
@@ -202,7 +247,30 @@ func (service *TokenService) clientNames(ctx context.Context, accessTokens []mod
 	return clientNames, nil
 }
 
-func (service *TokenService) logAudit(ctx context.Context, actorID string, action string, target string, metadata string) {
+func (service *TokenService) userNames(ctx context.Context, accessTokens []model.AccessToken, refreshTokens []model.RefreshToken) (map[uint]string, error) {
+	userNames := map[uint]string{}
+	userIDs := map[uint]struct{}{}
+	for _, token := range accessTokens {
+		userIDs[token.UserID] = struct{}{}
+	}
+	for _, token := range refreshTokens {
+		userIDs[token.UserID] = struct{}{}
+	}
+	for userID := range userIDs {
+		user, err := service.store.FindUserByID(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+		if user == nil {
+			userNames[userID] = ""
+			continue
+		}
+		userNames[userID] = user.Username
+	}
+	return userNames, nil
+}
+
+func (service *TokenService) logAudit(ctx context.Context, actorID uint, action string, target string, metadata string) {
 	_ = service.store.CreateAuditLog(ctx, &model.AuditLog{
 		ID:       security.NewID(),
 		ActorID:  actorID,
@@ -212,7 +280,7 @@ func (service *TokenService) logAudit(ctx context.Context, actorID string, actio
 	})
 }
 
-func canManageToken(actor *model.User, tokenOwnerID string) bool {
+func canManageToken(actor *model.User, tokenOwnerID uint) bool {
 	if actor == nil {
 		return false
 	}

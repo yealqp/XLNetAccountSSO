@@ -52,7 +52,7 @@ func (handler *OAuthHandler) Preview(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "preview authorization failed")
 	}
-	return c.JSON(preview)
+	return writeSuccess(c, fiber.StatusOK, preview, "success")
 }
 
 func (handler *OAuthHandler) Decide(c *fiber.Ctx) error {
@@ -65,7 +65,7 @@ func (handler *OAuthHandler) Decide(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "issue authorization code failed")
 	}
-	return c.JSON(fiber.Map{"redirect_to": redirectTo})
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{"redirect_to": redirectTo}, "success")
 }
 
 func (handler *OAuthHandler) Token(c *fiber.Ctx) error {

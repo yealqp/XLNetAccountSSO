@@ -6,10 +6,9 @@ import (
 )
 
 type User struct {
-	ID           string    `gorm:"primaryKey;size:36" json:"id"`
+	ID           uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Username     string    `gorm:"size:64;uniqueIndex;not null" json:"username"`
 	PasswordHash string    `gorm:"size:255;not null" json:"-"`
-	DisplayName  string    `gorm:"size:120;not null" json:"display_name"`
 	Email        string    `gorm:"size:160;not null" json:"email"`
 	Role         string    `gorm:"size:32;not null;default:user" json:"role"`
 	Status       string    `gorm:"size:32;not null;default:active" json:"status"`
@@ -28,7 +27,7 @@ type OAuthClient struct {
 	RedirectURIsRaw  string    `gorm:"type:text;not null" json:"-"`
 	ScopesRaw        string    `gorm:"type:text;not null" json:"-"`
 	Trusted          bool      `gorm:"not null;default:false" json:"trusted"`
-	CreatedBy        string    `gorm:"size:36;not null" json:"created_by"`
+	CreatedBy        uint      `gorm:"not null" json:"created_by"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }
@@ -37,7 +36,7 @@ type AuthorizationCode struct {
 	ID                  string     `gorm:"primaryKey;size:36" json:"id"`
 	CodeHash            string     `gorm:"size:128;uniqueIndex;not null" json:"-"`
 	ClientID            string     `gorm:"size:120;index;not null" json:"client_id"`
-	UserID              string     `gorm:"size:36;index;not null" json:"user_id"`
+	UserID              uint       `gorm:"index;not null" json:"user_id"`
 	RedirectURI         string     `gorm:"size:500;not null" json:"redirect_uri"`
 	Scope               string     `gorm:"type:text;not null" json:"scope"`
 	State               string     `gorm:"size:255;not null" json:"state"`
@@ -53,7 +52,7 @@ type AccessToken struct {
 	ID        string     `gorm:"primaryKey;size:36" json:"id"`
 	TokenHash string     `gorm:"size:128;uniqueIndex;not null" json:"-"`
 	ClientID  string     `gorm:"size:120;index;not null" json:"client_id"`
-	UserID    string     `gorm:"size:36;index;not null" json:"user_id"`
+	UserID    uint       `gorm:"index;not null" json:"user_id"`
 	Scope     string     `gorm:"type:text;not null" json:"scope"`
 	ExpiresAt time.Time  `gorm:"index;not null" json:"expires_at"`
 	RevokedAt *time.Time `json:"revoked_at"`
@@ -66,7 +65,7 @@ type RefreshToken struct {
 	TokenHash     string     `gorm:"size:128;uniqueIndex;not null" json:"-"`
 	AccessTokenID string     `gorm:"size:36;index;not null" json:"access_token_id"`
 	ClientID      string     `gorm:"size:120;index;not null" json:"client_id"`
-	UserID        string     `gorm:"size:36;index;not null" json:"user_id"`
+	UserID        uint       `gorm:"index;not null" json:"user_id"`
 	Scope         string     `gorm:"type:text;not null" json:"scope"`
 	ExpiresAt     time.Time  `gorm:"index;not null" json:"expires_at"`
 	RevokedAt     *time.Time `json:"revoked_at"`
@@ -77,7 +76,7 @@ type RefreshToken struct {
 type UserSession struct {
 	ID               string     `gorm:"primaryKey;size:36" json:"id"`
 	SessionTokenHash string     `gorm:"size:128;uniqueIndex;not null" json:"-"`
-	UserID           string     `gorm:"size:36;index;not null" json:"user_id"`
+	UserID           uint       `gorm:"index;not null" json:"user_id"`
 	IPAddress        string     `gorm:"size:64" json:"ip_address"`
 	UserAgent        string     `gorm:"size:255" json:"user_agent"`
 	LastSeenAt       time.Time  `gorm:"not null" json:"last_seen_at"`
@@ -89,7 +88,7 @@ type UserSession struct {
 
 type AuditLog struct {
 	ID        string    `gorm:"primaryKey;size:36" json:"id"`
-	ActorID   string    `gorm:"size:36;index" json:"actor_id"`
+	ActorID   uint      `gorm:"index" json:"actor_id"`
 	Action    string    `gorm:"size:120;index;not null" json:"action"`
 	Target    string    `gorm:"size:255;not null" json:"target"`
 	IPAddress string    `gorm:"size:64" json:"ip_address"`

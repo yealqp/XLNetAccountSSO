@@ -3,6 +3,7 @@ import { computed, shallowRef } from 'vue'
 
 import { fetchSession, login, logout } from '@/api/auth'
 import type { UserSummary } from '@/types/api'
+import { clearAuthToken, setAuthToken } from '@/utils/authToken'
 
 export const useSessionStore = defineStore('session', () => {
   const user = shallowRef<UserSummary | null>(null)
@@ -12,6 +13,9 @@ export const useSessionStore = defineStore('session', () => {
   async function syncSession() {
     const session = await fetchSession()
     user.value = session.authenticated ? session.user ?? null : null
+    if (!session.authenticated) {
+      clearAuthToken()
+    }
     ready.value = true
     return user.value
   }
@@ -25,13 +29,19 @@ export const useSessionStore = defineStore('session', () => {
 
   async function signIn(payload: { username: string; password: string }) {
     const session = await login(payload)
+    setAuthToken(session.access_token)
     user.value = session.user ?? null
     ready.value = true
     return user.value
   }
 
   async function signOut() {
-    await logout()
+    try {
+      await logout()
+    }
+    finally {
+      clearAuthToken()
+    }
     user.value = null
     ready.value = true
   }
@@ -44,5 +54,14 @@ export const useSessionStore = defineStore('session', () => {
     ensureSession,
     signIn,
     signOut,
+    setUser: (nextUser: UserSummary | null) => {
+      user.value = nextUser
+      ready.value = true
+    },
+    clear: () => {
+      clearAuthToken()
+      user.value = null
+      ready.value = true
+    },
   }
 })

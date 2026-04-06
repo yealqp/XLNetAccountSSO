@@ -86,9 +86,8 @@ func (service *OAuthService) PreviewAuthorization(ctx context.Context, user *mod
 			"requested_scope_details": ScopeDetails(scopeItems),
 		},
 		"user": map[string]any{
-			"id":           user.ID,
-			"username":     user.Username,
-			"display_name": user.DisplayName,
+			"id":       user.ID,
+			"username": user.Username,
 		},
 		"request": map[string]any{
 			"response_type":         input.ResponseType,
@@ -167,7 +166,7 @@ func (service *OAuthService) UserInfo(ctx context.Context, rawToken string) (map
 	}
 	if HasScope(accessToken.Scope, "profile") {
 		response["preferred_username"] = user.Username
-		response["name"] = user.DisplayName
+		response["name"] = user.Username
 	}
 	if HasScope(accessToken.Scope, "email") {
 		response["email"] = user.Email
@@ -330,7 +329,7 @@ func (service *OAuthService) exchangeRefreshToken(ctx context.Context, input Tok
 	return service.issueTokens(ctx, refreshToken.ClientID, refreshToken.UserID, refreshToken.Scope, "", false)
 }
 
-func (service *OAuthService) issueTokens(ctx context.Context, clientID string, userID string, scope string, nonce string, includeIDToken bool) (map[string]any, error) {
+func (service *OAuthService) issueTokens(ctx context.Context, clientID string, userID uint, scope string, nonce string, includeIDToken bool) (map[string]any, error) {
 	normalizedScopes, err := NormalizeKnownScopes(normalizeScopeList(strings.Fields(strings.ReplaceAll(strings.TrimSpace(scope), ",", " "))))
 	if err != nil {
 		return nil, err
@@ -387,7 +386,7 @@ func (service *OAuthService) issueTokens(ctx context.Context, clientID string, u
 	return response, nil
 }
 
-func (service *OAuthService) issueIDToken(ctx context.Context, clientID string, userID string, scope string, nonce string, issuedAt time.Time) (string, error) {
+func (service *OAuthService) issueIDToken(ctx context.Context, clientID string, userID uint, scope string, nonce string, issuedAt time.Time) (string, error) {
 	user, err := service.store.FindUserByID(ctx, userID)
 	if err != nil {
 		return "", err
@@ -407,7 +406,7 @@ func (service *OAuthService) issueIDToken(ctx context.Context, clientID string, 
 	}
 	if HasScope(scope, "profile") {
 		claims["preferred_username"] = user.Username
-		claims["name"] = user.DisplayName
+		claims["name"] = user.Username
 	}
 	if HasScope(scope, "email") {
 		claims["email"] = user.Email

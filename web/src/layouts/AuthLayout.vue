@@ -31,16 +31,22 @@ void platformStore.ensureLoaded().catch(() => {})
 
 <style scoped>
 .auth-layout {
-  background:
-    linear-gradient(110deg, rgba(8, 14, 26, 0.78) 0%, rgba(8, 14, 26, 0.54) 42%, rgba(8, 14, 26, 0.7) 100%),
-    radial-gradient(circle at top right, rgba(52, 159, 244, 0.22), transparent 30%),
-    #101014;
+  background: transparent;
+}
+
+.auth-layout :deep(.n-layout-scroll-container) {
+  min-height: 100%;
 }
 
 .auth-content {
   position: relative;
   min-height: 100vh;
   min-height: 100dvh;
+  overflow: hidden;
+  background:
+    linear-gradient(110deg, rgba(8, 14, 26, 0.82) 0%, rgba(8, 14, 26, 0.62) 42%, rgba(8, 14, 26, 0.76) 100%),
+    url('https://t.alcy.cc/ycy') center / cover no-repeat,
+    #101014;
 }
 
 .auth-shell__veil {
@@ -51,15 +57,16 @@ void platformStore.ensureLoaded().catch(() => {})
 }
 
 .auth-shell {
+  --auth-shell-padding: clamp(20px, 4vw, 40px);
   position: relative;
   z-index: 1;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(340px, 440px);
   align-items: center;
   gap: clamp(28px, 5vw, 72px);
-  padding: clamp(24px, 4vw, 48px);
+  padding: var(--auth-shell-padding);
 }
 
 .auth-hero {
@@ -99,22 +106,27 @@ void platformStore.ensureLoaded().catch(() => {})
 .auth-panel {
   display: flex;
   justify-content: flex-end;
-  align-items: center;
+  align-items: stretch;
+  min-height: 0;
 }
 
 .auth-panel-card {
   width: min(100%, 460px);
   padding: clamp(20px, 3vw, 28px);
+  max-height: calc(100dvh - (var(--auth-shell-padding) * 2));
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: rgba(10, 18, 30, 0.42);
   box-shadow: 0 18px 48px rgba(4, 10, 22, 0.32);
   backdrop-filter: blur(22px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 @media (max-width: 1080px) {
   .auth-shell {
     grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 28px;
   }
 
@@ -124,12 +136,14 @@ void platformStore.ensureLoaded().catch(() => {})
 
   .auth-panel-card {
     width: min(100%, 520px);
+    max-height: 100%;
   }
 }
 
 @media (max-width: 720px) {
   .auth-shell {
-    padding: 20px 16px 24px;
+    --auth-shell-padding: 16px;
+    gap: 16px;
   }
 
   .auth-headline {

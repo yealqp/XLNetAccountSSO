@@ -26,3 +26,17 @@ export function updatePlatformSettings(payload: PlatformSettingsResponse) {
 		body: JSON.stringify(payload),
 	})
 }
+
+export function sendTestEmail(payload: {
+	smtp_host: string
+	smtp_user: string
+	smtp_password: string
+	smtp_port: string
+	smtp_tls: boolean
+	to: string
+}) {
+	return request<{ sent: boolean }>('/api/settings/platform/test-email', {
+		method: 'POST',
+		body: JSON.stringify(payload),
+	})
+}

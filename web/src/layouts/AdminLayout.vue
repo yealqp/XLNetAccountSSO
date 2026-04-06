@@ -3,6 +3,7 @@ import {
   NButton,
   NDrawer,
   NDrawerContent,
+  NIcon,
   NLayout,
   NLayoutContent,
   NLayoutHeader,
@@ -15,8 +16,19 @@ import {
   useMessage,
 } from 'naive-ui'
 import type { MenuOption } from 'naive-ui'
-import { computed, shallowRef, watch } from 'vue'
+import { computed, h, shallowRef, watch } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
+import {
+  AppWindow,
+  Boxes,
+  LayoutDashboard,
+  Link2,
+  Settings,
+  Shield,
+  ShieldUser,
+  UserCog,
+  WalletCards,
+} from 'lucide-vue-next'
 
 import { useViewport } from '@/composables/useViewport'
 import { usePlatformStore } from '@/stores/platform'
@@ -32,29 +44,47 @@ void platformStore.ensureLoaded().catch(() => {})
 
 const isAdmin = computed(() => sessionStore.user?.role === 'admin')
 
+function renderLucideIcon(icon: typeof LayoutDashboard) {
+  return () => h(NIcon, null, { default: () => h(icon) })
+}
+
 const menuOptions = computed<MenuOption[]>(() => {
-  const items: MenuOption[] = []
+  const items: MenuOption[] = [
+    {
+      label: '导航',
+      key: 'group-navigation',
+      type: 'group',
+      children: [
+        { label: '概览', key: 'overview', icon: renderLucideIcon(LayoutDashboard) },
+        { label: '应用', key: 'applications', icon: renderLucideIcon(AppWindow) },
+        { label: '令牌', key: 'tokens', icon: renderLucideIcon(WalletCards) },
+        { label: '普通设置', key: 'settings', icon: renderLucideIcon(Settings) },
+        { label: '连接信息', key: 'connection-info', icon: renderLucideIcon(Link2) },
+      ],
+    },
+  ]
 
   if (isAdmin.value) {
-    items.push(
-      { label: '总览', key: 'dashboard' },
-      { label: '客户端', key: 'clients' },
-      { label: '用户', key: 'users' },
-      { label: '设置', key: 'settings' },
-    )
+    items.push({
+      label: '管理',
+      key: 'group-management',
+      type: 'group',
+      children: [
+        { label: '管理概览', key: 'manage-overview', icon: renderLucideIcon(LayoutDashboard) },
+        { label: '用户管理', key: 'manage-users', icon: renderLucideIcon(UserCog) },
+        { label: '应用管理', key: 'manage-applications', icon: renderLucideIcon(Boxes) },
+        { label: '令牌管理', key: 'manage-tokens', icon: renderLucideIcon(ShieldUser) },
+        { label: '系统设置', key: 'system-settings', icon: renderLucideIcon(Shield) },
+      ],
+    })
   }
-
-	items.push(
-		{ label: '令牌', key: 'tokens' },
-		{ label: '连接信息', key: 'connection-info' },
-	)
 
   return items
 })
 
 const selectedKey = computed(() => {
   const currentRoute = router.currentRoute.value
-  return String(currentRoute.name ?? 'dashboard')
+	return String(currentRoute.name ?? 'overview')
 })
 const mobileDrawerWidth = computed(() => Math.min(280, Math.max(220, width.value - 24)))
 
@@ -93,7 +123,7 @@ async function handleNavigate(key: string) {
             菜单
           </NButton>
           <NTag size="small" round type="info">{{ sessionStore.user?.role ?? 'user' }}</NTag>
-          <NText depth="3">{{ sessionStore.user?.display_name ?? sessionStore.user?.username }}</NText>
+          <NText depth="3">{{ sessionStore.user?.username }}</NText>
           <NButton tertiary type="error" @click="handleLogout">
             退出
           </NButton>

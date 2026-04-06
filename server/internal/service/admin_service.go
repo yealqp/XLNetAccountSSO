@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"mime/multipart"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/xianlin-network/sso-platform/server/internal/config"
 	"github.com/xianlin-network/sso-platform/server/internal/model"
@@ -33,19 +35,18 @@ type UpdateClientInput struct {
 }
 
 type CreateUserInput struct {
-	Username    string `json:"username"`
-	Password    string `json:"password"`
-	DisplayName string `json:"display_name"`
-	Email       string `json:"email"`
-	Role        string `json:"role"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
+	Role     string `json:"role"`
 }
 
 type UpdateUserInput struct {
-	DisplayName string `json:"display_name"`
-	Email       string `json:"email"`
-	Role        string `json:"role"`
-	Status      string `json:"status"`
-	Password    string `json:"password"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Role     string `json:"role"`
+	Status   string `json:"status"`
+	Password string `json:"password"`
 }
 
 type AdminService struct {
@@ -75,6 +76,15 @@ type PlatformSettings struct {
 	SMTPTLS           bool   `json:"smtp_tls"`
 	CAPAPIEndpoint    string `json:"cap_api_endpoint"`
 	CAPSecretKey      string `json:"cap_secret_key"`
+}
+
+type TestEmailInput struct {
+	SMTPHost     string `json:"smtp_host"`
+	SMTPUser     string `json:"smtp_user"`
+	SMTPPassword string `json:"smtp_password"`
+	SMTPPort     string `json:"smtp_port"`
+	SMTPTLS      bool   `json:"smtp_tls"`
+	To           string `json:"to"`
 }
 
 func NewAdminService(store *repository.Store, cfg config.Config) *AdminService {
@@ -151,12 +161,64 @@ func (service *AdminService) UpdatePlatformSettings(ctx context.Context, input P
 	return service.loadPlatformSettings(ctx)
 }
 
+func (service *AdminService) SendTestEmail(ctx context.Context, input TestEmailInput) error {
+	settings := PlatformSettings{
+		SMTPHost:     strings.TrimSpace(input.SMTPHost),
+		SMTPUser:     strings.TrimSpace(input.SMTPUser),
+		SMTPPassword: strings.TrimSpace(input.SMTPPassword),
+		SMTPPort:     strings.TrimSpace(input.SMTPPort),
+		SMTPTLS:      input.SMTPTLS,
+	}
+	to := strings.TrimSpace(strings.ToLower(input.To))
+	if to == "" || !strings.Contains(to, "@") {
+		return fmt.Errorf("%w: 请输入有效的测试收件邮箱", ErrInvalidInput)
+	}
+	platformName, err := service.PlatformName(ctx)
+	if err != nil {
+		return err
+	}
+	subject := platformName + " 邮件测试"
+	body := "这是一封来自 " + platformName + " 的测试邮件。\n\n如果您收到此邮件，说明当前 SMTP 配置可正常发送。"
+	return sendSMTPMail(settings, to, subject, body)
+}
+
 func (service *AdminService) Overview(ctx context.Context) (repository.Overview, error) {
 	return service.store.Overview(ctx)
 }
 
+func (service *AdminService) OverviewForUser(ctx context.Context, actor *model.User) (repository.Overview, error) {
+	var result repository.Overview
+	if actor == nil {
+		return result, ErrUnauthorized
+	}
+	clients, err := service.store.CountClientsByCreator(ctx, actor.ID)
+	if err != nil {
+		return result, err
+	}
+	accessTokens, err := service.store.ListAccessTokensByUser(ctx, actor.ID)
+	if err != nil {
+		return result, err
+	}
+	activeTokens := int64(0)
+	now := time.Now().UTC()
+	for _, token := range accessTokens {
+		if token.RevokedAt == nil && token.ExpiresAt.After(now) {
+			activeTokens++
+		}
+	}
+	result.Users = 1
+	result.Clients = clients
+	result.AccessTokens = activeTokens
+	result.ActiveSessions = 0
+	return result, nil
+}
+
 func (service *AdminService) ListClients(ctx context.Context) ([]map[string]any, error) {
 	clients, err := service.store.ListClients(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ownerNames, err := service.usernamesByID(ctx, collectClientOwnerIDs(clients))
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +230,32 @@ func (service *AdminService) ListClients(ctx context.Context) ([]map[string]any,
 			client.IconURL = resolvedIconURL
 			_ = service.store.SaveClient(ctx, &client)
 		}
-		items = append(items, clientResponse(client, ""))
+		items = append(items, clientResponse(client, ownerNames[client.CreatedBy], ""))
+	}
+	return items, nil
+}
+
+func (service *AdminService) ListUserClients(ctx context.Context, actor *model.User) ([]map[string]any, error) {
+	if actor == nil {
+		return nil, ErrUnauthorized
+	}
+	clients, err := service.store.ListClientsByCreator(ctx, actor.ID)
+	if err != nil {
+		return nil, err
+	}
+	ownerNames, err := service.usernamesByID(ctx, collectClientOwnerIDs(clients))
+	if err != nil {
+		return nil, err
+	}
+	items := make([]map[string]any, 0, len(clients))
+	for index := range clients {
+		client := clients[index]
+		resolvedIconURL, err := SyncClientIconURL(ctx, service.cfg, client.ID, client.IconURL)
+		if err == nil && resolvedIconURL != client.IconURL {
+			client.IconURL = resolvedIconURL
+			_ = service.store.SaveClient(ctx, &client)
+		}
+		items = append(items, clientResponse(client, ownerNames[client.CreatedBy], ""))
 	}
 	return items, nil
 }
@@ -247,16 +334,29 @@ func (service *AdminService) CreateClient(ctx context.Context, actor *model.User
 		return nil, err
 	}
 
-	return clientResponse(*client, rawSecret), nil
+	return clientResponse(*client, actor.Username, rawSecret), nil
 }
 
 func (service *AdminService) UpdateClient(ctx context.Context, id string, input UpdateClientInput) (map[string]any, error) {
+	return service.updateClient(ctx, nil, id, input, true)
+}
+
+func (service *AdminService) UpdateUserClient(ctx context.Context, actor *model.User, id string, input UpdateClientInput) (map[string]any, error) {
+	return service.updateClient(ctx, actor, id, input, false)
+}
+
+func (service *AdminService) updateClient(ctx context.Context, actor *model.User, id string, input UpdateClientInput, manageAll bool) (map[string]any, error) {
 	client, err := service.store.FindClientByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	if client == nil {
 		return nil, ErrNotFound
+	}
+	if !manageAll {
+		if actor == nil || client.CreatedBy != actor.ID {
+			return nil, ErrForbidden
+		}
 	}
 	name := strings.TrimSpace(input.Name)
 	if name == "" || len(input.RedirectURIs) == 0 {
@@ -279,16 +379,33 @@ func (service *AdminService) UpdateClient(ctx context.Context, id string, input 
 	if err := service.store.SaveClient(ctx, client); err != nil {
 		return nil, err
 	}
-	return clientResponse(*client, ""), nil
+	ownerName := ""
+	if owner, err := service.store.FindUserByID(ctx, client.CreatedBy); err == nil && owner != nil {
+		ownerName = owner.Username
+	}
+	return clientResponse(*client, ownerName, ""), nil
 }
 
 func (service *AdminService) DeleteClient(ctx context.Context, id string) error {
+	return service.deleteClient(ctx, nil, id, true)
+}
+
+func (service *AdminService) DeleteUserClient(ctx context.Context, actor *model.User, id string) error {
+	return service.deleteClient(ctx, actor, id, false)
+}
+
+func (service *AdminService) deleteClient(ctx context.Context, actor *model.User, id string, manageAll bool) error {
 	client, err := service.store.FindClientByID(ctx, id)
 	if err != nil {
 		return err
 	}
 	if client == nil {
 		return ErrNotFound
+	}
+	if !manageAll {
+		if actor == nil || client.CreatedBy != actor.ID {
+			return ErrForbidden
+		}
 	}
 	if err := service.store.DeleteAuthorizationCodesByClientID(ctx, client.ClientID); err != nil {
 		return err
@@ -342,6 +459,9 @@ func (service *AdminService) CreateUser(ctx context.Context, input CreateUserInp
 			return nil, ErrConflict
 		}
 	}
+	if err := validateRegistrationPassword(input.Password); err != nil {
+		return nil, err
+	}
 	passwordHash, err := security.HashPassword(input.Password)
 	if err != nil {
 		return nil, err
@@ -351,16 +471,11 @@ func (service *AdminService) CreateUser(ctx context.Context, input CreateUserInp
 		role = "user"
 	}
 	user := &model.User{
-		ID:           security.NewID(),
 		Username:     username,
 		PasswordHash: passwordHash,
-		DisplayName:  strings.TrimSpace(input.DisplayName),
 		Email:        email,
 		Role:         role,
 		Status:       "active",
-	}
-	if user.DisplayName == "" {
-		user.DisplayName = username
 	}
 	if err := service.store.CreateUser(ctx, user); err != nil {
 		return nil, err
@@ -369,15 +484,26 @@ func (service *AdminService) CreateUser(ctx context.Context, input CreateUserInp
 }
 
 func (service *AdminService) UpdateUser(ctx context.Context, id string, input UpdateUserInput) (map[string]any, error) {
-	user, err := service.store.FindUserByID(ctx, id)
+	userID, err := parseUintID(id)
+	if err != nil {
+		return nil, err
+	}
+	user, err := service.store.FindUserByID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	if user == nil {
 		return nil, ErrNotFound
 	}
-	if displayName := strings.TrimSpace(input.DisplayName); displayName != "" {
-		user.DisplayName = displayName
+	if username := strings.TrimSpace(input.Username); username != "" {
+		existingByUsername, err := service.store.FindUserByUsername(ctx, username)
+		if err != nil {
+			return nil, err
+		}
+		if existingByUsername != nil && existingByUsername.ID != user.ID {
+			return nil, ErrConflict
+		}
+		user.Username = username
 	}
 	if email := strings.TrimSpace(strings.ToLower(input.Email)); email != "" {
 		existingByEmail, err := service.store.FindUserByEmail(ctx, email)
@@ -396,7 +522,10 @@ func (service *AdminService) UpdateUser(ctx context.Context, id string, input Up
 		user.Status = status
 	}
 	if password := strings.TrimSpace(input.Password); password != "" {
-		hash, err := security.HashPassword(password)
+		if err := validateRegistrationPassword(input.Password); err != nil {
+			return nil, err
+		}
+		hash, err := security.HashPassword(input.Password)
 		if err != nil {
 			return nil, err
 		}
@@ -409,7 +538,11 @@ func (service *AdminService) UpdateUser(ctx context.Context, id string, input Up
 }
 
 func (service *AdminService) DeleteUser(ctx context.Context, actor *model.User, id string) error {
-	user, err := service.store.FindUserByID(ctx, id)
+	userID, err := parseUintID(id)
+	if err != nil {
+		return err
+	}
+	user, err := service.store.FindUserByID(ctx, userID)
 	if err != nil {
 		return err
 	}
@@ -431,7 +564,7 @@ func (service *AdminService) DeleteUser(ctx context.Context, actor *model.User, 
 	if err := service.store.DeleteSessionsByUserID(ctx, user.ID); err != nil {
 		return err
 	}
-	return service.store.DeleteUser(ctx, id)
+	return service.store.DeleteUser(ctx, userID)
 }
 
 func (service *AdminService) loadPlatformSettings(ctx context.Context) (PlatformSettings, error) {
@@ -506,33 +639,71 @@ func boolString(value bool) string {
 	return "false"
 }
 
-func clientResponse(client model.OAuthClient, rawSecret string) map[string]any {
+func clientResponse(client model.OAuthClient, ownerUsername string, rawSecret string) map[string]any {
 	return map[string]any{
-		"id":            client.ID,
-		"name":          client.Name,
-		"description":   client.Description,
-		"icon_url":      client.IconURL,
-		"client_id":     client.ClientID,
-		"client_type":   client.ClientType,
-		"redirect_uris": client.RedirectURIs(),
-		"scopes":        client.Scopes(),
-		"trusted":       client.Trusted,
-		"created_by":    client.CreatedBy,
-		"created_at":    client.CreatedAt,
-		"updated_at":    client.UpdatedAt,
-		"client_secret": rawSecret,
+		"id":             client.ID,
+		"name":           client.Name,
+		"description":    client.Description,
+		"icon_url":       client.IconURL,
+		"client_id":      client.ClientID,
+		"client_type":    client.ClientType,
+		"redirect_uris":  client.RedirectURIs(),
+		"scopes":         client.Scopes(),
+		"trusted":        client.Trusted,
+		"created_by":     client.CreatedBy,
+		"owner_username": ownerUsername,
+		"created_at":     client.CreatedAt,
+		"updated_at":     client.UpdatedAt,
+		"client_secret":  rawSecret,
 	}
 }
 
 func userResponse(user model.User) map[string]any {
 	return map[string]any{
-		"id":           user.ID,
-		"username":     user.Username,
-		"display_name": user.DisplayName,
-		"email":        user.Email,
-		"role":         user.Role,
-		"status":       user.Status,
-		"created_at":   user.CreatedAt,
-		"updated_at":   user.UpdatedAt,
+		"id":         user.ID,
+		"username":   user.Username,
+		"email":      user.Email,
+		"role":       user.Role,
+		"status":     user.Status,
+		"created_at": user.CreatedAt,
+		"updated_at": user.UpdatedAt,
 	}
+}
+
+func parseUintID(value string) (uint, error) {
+	parsed, err := strconv.ParseUint(strings.TrimSpace(value), 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("%w: 无效的用户 ID", ErrInvalidInput)
+	}
+	return uint(parsed), nil
+}
+
+func (service *AdminService) usernamesByID(ctx context.Context, ids []uint) (map[uint]string, error) {
+	result := map[uint]string{}
+	for _, id := range ids {
+		if _, ok := result[id]; ok {
+			continue
+		}
+		user, err := service.store.FindUserByID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		if user != nil {
+			result[id] = user.Username
+		}
+	}
+	return result, nil
+}
+
+func collectClientOwnerIDs(clients []model.OAuthClient) []uint {
+	ids := make([]uint, 0, len(clients))
+	seen := map[uint]struct{}{}
+	for _, client := range clients {
+		if _, ok := seen[client.CreatedBy]; ok {
+			continue
+		}
+		seen[client.CreatedBy] = struct{}{}
+		ids = append(ids, client.CreatedBy)
+	}
+	return ids
 }

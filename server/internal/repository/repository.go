@@ -40,7 +40,7 @@ func (store *Store) FindUserByEmail(ctx context.Context, email string) (*model.U
 	return &user, err
 }
 
-func (store *Store) FindUserByID(ctx context.Context, id string) (*model.User, error) {
+func (store *Store) FindUserByID(ctx context.Context, id uint) (*model.User, error) {
 	var user model.User
 	err := store.db.WithContext(ctx).Where("id = ?", id).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -69,7 +69,7 @@ func (store *Store) SaveUser(ctx context.Context, user *model.User) error {
 	return store.db.WithContext(ctx).Save(user).Error
 }
 
-func (store *Store) DeleteUser(ctx context.Context, id string) error {
+func (store *Store) DeleteUser(ctx context.Context, id uint) error {
 	return store.db.WithContext(ctx).Delete(&model.User{}, "id = ?", id).Error
 }
 
@@ -137,6 +137,21 @@ func (store *Store) ListClients(ctx context.Context) ([]model.OAuthClient, error
 	return clients, err
 }
 
+func (store *Store) ListClientsByCreator(ctx context.Context, createdBy uint) ([]model.OAuthClient, error) {
+	var clients []model.OAuthClient
+	err := store.db.WithContext(ctx).
+		Where("created_by = ?", createdBy).
+		Order("created_at desc").
+		Find(&clients).Error
+	return clients, err
+}
+
+func (store *Store) CountClientsByCreator(ctx context.Context, createdBy uint) (int64, error) {
+	var count int64
+	err := store.db.WithContext(ctx).Model(&model.OAuthClient{}).Where("created_by = ?", createdBy).Count(&count).Error
+	return count, err
+}
+
 func (store *Store) CreateClient(ctx context.Context, client *model.OAuthClient) error {
 	return store.db.WithContext(ctx).Create(client).Error
 }
@@ -166,7 +181,7 @@ func (store *Store) SaveSession(ctx context.Context, session *model.UserSession)
 	return store.db.WithContext(ctx).Save(session).Error
 }
 
-func (store *Store) DeleteSessionsByUserID(ctx context.Context, userID string) error {
+func (store *Store) DeleteSessionsByUserID(ctx context.Context, userID uint) error {
 	return store.db.WithContext(ctx).Delete(&model.UserSession{}, "user_id = ?", userID).Error
 }
 
@@ -191,7 +206,7 @@ func (store *Store) DeleteAuthorizationCodesByClientID(ctx context.Context, clie
 	return store.db.WithContext(ctx).Delete(&model.AuthorizationCode{}, "client_id = ?", clientID).Error
 }
 
-func (store *Store) DeleteAuthorizationCodesByUserID(ctx context.Context, userID string) error {
+func (store *Store) DeleteAuthorizationCodesByUserID(ctx context.Context, userID uint) error {
 	return store.db.WithContext(ctx).Delete(&model.AuthorizationCode{}, "user_id = ?", userID).Error
 }
 
@@ -217,7 +232,7 @@ func (store *Store) FindAccessTokenByID(ctx context.Context, id string) (*model.
 	return &token, err
 }
 
-func (store *Store) ListAccessTokensByUser(ctx context.Context, userID string) ([]model.AccessToken, error) {
+func (store *Store) ListAccessTokensByUser(ctx context.Context, userID uint) ([]model.AccessToken, error) {
 	var tokens []model.AccessToken
 	err := store.db.WithContext(ctx).
 		Where("user_id = ?", userID).
@@ -226,10 +241,19 @@ func (store *Store) ListAccessTokensByUser(ctx context.Context, userID string) (
 	return tokens, err
 }
 
-func (store *Store) ListAccessTokensByUserAndClient(ctx context.Context, userID string, clientID string) ([]model.AccessToken, error) {
+func (store *Store) ListAccessTokensByUserAndClient(ctx context.Context, userID uint, clientID string) ([]model.AccessToken, error) {
 	var tokens []model.AccessToken
 	err := store.db.WithContext(ctx).
 		Where("user_id = ? AND client_id = ?", userID, clientID).
+		Order("created_at desc").
+		Find(&tokens).Error
+	return tokens, err
+}
+
+func (store *Store) ListAccessTokensByClientID(ctx context.Context, clientID string) ([]model.AccessToken, error) {
+	var tokens []model.AccessToken
+	err := store.db.WithContext(ctx).
+		Where("client_id = ?", clientID).
 		Order("created_at desc").
 		Find(&tokens).Error
 	return tokens, err
@@ -239,11 +263,17 @@ func (store *Store) SaveAccessToken(ctx context.Context, token *model.AccessToke
 	return store.db.WithContext(ctx).Save(token).Error
 }
 
+func (store *Store) ListAccessTokens(ctx context.Context) ([]model.AccessToken, error) {
+	var tokens []model.AccessToken
+	err := store.db.WithContext(ctx).Order("created_at desc").Find(&tokens).Error
+	return tokens, err
+}
+
 func (store *Store) DeleteAccessTokensByClientID(ctx context.Context, clientID string) error {
 	return store.db.WithContext(ctx).Delete(&model.AccessToken{}, "client_id = ?", clientID).Error
 }
 
-func (store *Store) DeleteAccessTokensByUserID(ctx context.Context, userID string) error {
+func (store *Store) DeleteAccessTokensByUserID(ctx context.Context, userID uint) error {
 	return store.db.WithContext(ctx).Delete(&model.AccessToken{}, "user_id = ?", userID).Error
 }
 
@@ -269,7 +299,7 @@ func (store *Store) FindRefreshTokenByID(ctx context.Context, id string) (*model
 	return &token, err
 }
 
-func (store *Store) ListRefreshTokensByUser(ctx context.Context, userID string) ([]model.RefreshToken, error) {
+func (store *Store) ListRefreshTokensByUser(ctx context.Context, userID uint) ([]model.RefreshToken, error) {
 	var tokens []model.RefreshToken
 	err := store.db.WithContext(ctx).
 		Where("user_id = ?", userID).
@@ -278,10 +308,19 @@ func (store *Store) ListRefreshTokensByUser(ctx context.Context, userID string) 
 	return tokens, err
 }
 
-func (store *Store) ListRefreshTokensByUserAndClient(ctx context.Context, userID string, clientID string) ([]model.RefreshToken, error) {
+func (store *Store) ListRefreshTokensByUserAndClient(ctx context.Context, userID uint, clientID string) ([]model.RefreshToken, error) {
 	var tokens []model.RefreshToken
 	err := store.db.WithContext(ctx).
 		Where("user_id = ? AND client_id = ?", userID, clientID).
+		Order("created_at desc").
+		Find(&tokens).Error
+	return tokens, err
+}
+
+func (store *Store) ListRefreshTokensByClientID(ctx context.Context, clientID string) ([]model.RefreshToken, error) {
+	var tokens []model.RefreshToken
+	err := store.db.WithContext(ctx).
+		Where("client_id = ?", clientID).
 		Order("created_at desc").
 		Find(&tokens).Error
 	return tokens, err
@@ -300,11 +339,17 @@ func (store *Store) SaveRefreshToken(ctx context.Context, token *model.RefreshTo
 	return store.db.WithContext(ctx).Save(token).Error
 }
 
+func (store *Store) ListRefreshTokens(ctx context.Context) ([]model.RefreshToken, error) {
+	var tokens []model.RefreshToken
+	err := store.db.WithContext(ctx).Order("created_at desc").Find(&tokens).Error
+	return tokens, err
+}
+
 func (store *Store) DeleteRefreshTokensByClientID(ctx context.Context, clientID string) error {
 	return store.db.WithContext(ctx).Delete(&model.RefreshToken{}, "client_id = ?", clientID).Error
 }
 
-func (store *Store) DeleteRefreshTokensByUserID(ctx context.Context, userID string) error {
+func (store *Store) DeleteRefreshTokensByUserID(ctx context.Context, userID uint) error {
 	return store.db.WithContext(ctx).Delete(&model.RefreshToken{}, "user_id = ?", userID).Error
 }
 

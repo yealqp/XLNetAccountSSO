@@ -47,32 +47,53 @@ const router = createRouter({
       children: [
         {
           path: '',
-          name: 'dashboard',
-          meta: { requiresAdmin: true },
+          name: 'overview',
           component: () => import('@/components/admin/DashboardPage.vue'),
         },
         {
-          path: 'clients',
-          name: 'clients',
-          meta: { requiresAdmin: true },
+          path: 'manage/overview',
+          name: 'manage-overview',
+          meta: { requiresAdmin: true, manageScope: 'all' },
+          component: () => import('@/components/admin/DashboardPage.vue'),
+        },
+        {
+          path: 'applications',
+          name: 'applications',
           component: () => import('@/components/admin/ClientsPage.vue'),
-        },
-        {
-          path: 'users',
-          name: 'users',
-          meta: { requiresAdmin: true },
-          component: () => import('@/components/admin/UsersPage.vue'),
-        },
-        {
-          path: 'settings',
-          name: 'settings',
-          meta: { requiresAdmin: true },
-          component: () => import('@/components/admin/SettingsPage.vue'),
         },
         {
           path: 'tokens',
           name: 'tokens',
           component: () => import('@/components/admin/TokensPage.vue'),
+        },
+        {
+          path: 'manage/users',
+          name: 'manage-users',
+          meta: { requiresAdmin: true },
+          component: () => import('@/components/admin/UsersPage.vue'),
+        },
+        {
+          path: 'manage/applications',
+          name: 'manage-applications',
+          meta: { requiresAdmin: true, manageScope: 'all' },
+          component: () => import('@/components/admin/ClientsPage.vue'),
+        },
+        {
+          path: 'manage/tokens',
+          name: 'manage-tokens',
+          meta: { requiresAdmin: true, manageScope: 'all' },
+          component: () => import('@/components/admin/TokensPage.vue'),
+        },
+        {
+          path: 'manage/system-settings',
+          name: 'system-settings',
+          meta: { requiresAdmin: true },
+          component: () => import('@/components/admin/SystemSettingsPage.vue'),
+        },
+        {
+          path: 'settings',
+          name: 'settings',
+          component: () => import('@/components/admin/SettingsPage.vue'),
         },
         {
           path: 'connection-info',
@@ -100,7 +121,7 @@ router.beforeEach(async (to) => {
 
   if (initialized && to.name === 'setup') {
     if (sessionStore.authenticated || (await sessionStore.ensureSession())) {
-      return { name: sessionStore.user?.role === 'admin' ? 'dashboard' : 'tokens' }
+      return { name: 'overview' }
     }
     return { name: 'login' }
   }
@@ -124,13 +145,13 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.requiresAdmin && sessionStore.user?.role !== 'admin') {
-    return { name: 'tokens' }
+    return { name: 'overview' }
   }
 
   if (to.name === 'login' && !to.query.next) {
     await sessionStore.ensureSession()
     if (sessionStore.authenticated) {
-      return { name: sessionStore.user?.role === 'admin' ? 'dashboard' : 'tokens' }
+      return { name: 'overview' }
     }
   }
 

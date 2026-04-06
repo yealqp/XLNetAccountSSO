@@ -19,7 +19,7 @@ import {
 import type { UploadCustomRequestOptions } from 'naive-ui'
 import { computed, onBeforeUnmount, reactive, shallowRef, watch } from 'vue'
 
-import { createClient, updateClient, uploadClientIcon } from '@/api/admin'
+import { createClient, updateClient, updateManagedClient, uploadClientIcon } from '@/api/admin'
 import { ApiError } from '@/api/http'
 import { getServerBaseUrl } from '@/config/endpoints'
 import { defaultScopeKeys, scopeOptions } from '@/constants/scopes'
@@ -28,6 +28,7 @@ import type { OAuthClientRecord } from '@/types/api'
 
 interface Props {
   initialClient?: OAuthClientRecord | null
+  manageAll?: boolean
 }
 
 const props = defineProps<Props>()
@@ -120,7 +121,7 @@ async function handleSubmit() {
 
   try {
     const result = isEditing.value && props.initialClient
-      ? await updateClient(props.initialClient.id, payload)
+      ? await (props.manageAll ? updateManagedClient(props.initialClient.id, payload) : updateClient(props.initialClient.id, payload))
       : await createClient(payload)
 
     message.success(isEditing.value ? '客户端已更新' : '客户端已创建')

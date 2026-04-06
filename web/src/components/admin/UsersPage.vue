@@ -86,7 +86,6 @@ function isCurrentUser(user: UserRecord) {
           <thead>
             <tr>
               <th>用户名</th>
-              <th>显示名称</th>
               <th>邮箱</th>
               <th>角色</th>
               <th>状态</th>
@@ -96,7 +95,6 @@ function isCurrentUser(user: UserRecord) {
           <tbody>
             <tr v-for="user in users" :key="user.id">
               <td class="mono">{{ user.username }}</td>
-              <td>{{ user.display_name }}</td>
               <td>{{ user.email || '-' }}</td>
               <td>
                 <NTag size="small" :type="user.role === 'admin' ? 'warning' : 'default'">

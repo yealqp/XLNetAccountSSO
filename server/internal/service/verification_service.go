@@ -20,8 +20,10 @@ import (
 )
 
 const (
-	verificationPurposeRegister = "register"
-	verificationCodeLifetime    = 10 * time.Minute
+	verificationPurposeRegister        = "register"
+	verificationPurposeProfilePassword = "profile_password"
+	verificationCodeLifetime           = 10 * time.Minute
+	verificationResendInterval         = 60 * time.Second
 )
 
 type VerificationService struct {
@@ -33,9 +35,12 @@ func NewVerificationService(store *repository.Store) *VerificationService {
 }
 
 func (service *VerificationService) SendRegistrationCode(ctx context.Context, settings PlatformSettings, email string, captchaToken string) error {
+	if !settings.AllowRegistration {
+		return ErrForbidden
+	}
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" || !strings.Contains(email, "@") {
-		return ErrInvalidInput
+		return fmt.Errorf("%w: 请输入有效邮箱", ErrInvalidInput)
 	}
 	if err := service.verifyCAPTCHA(ctx, settings, captchaToken); err != nil {
 		return err
@@ -47,28 +52,64 @@ func (service *VerificationService) SendRegistrationCode(ctx context.Context, se
 	if existing != nil {
 		return ErrConflict
 	}
+	return service.sendCode(ctx, email, verificationPurposeRegister, settings, captchaToken, true, "XLNetAccount 注册验证码", registrationCodeBody)
+}
+
+func (service *VerificationService) SendProfilePasswordCode(ctx context.Context, settings PlatformSettings, email string) error {
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" || !strings.Contains(email, "@") {
+		return fmt.Errorf("%w: 当前账号未配置有效邮箱", ErrInvalidInput)
+	}
+	return service.sendCode(ctx, email, verificationPurposeProfilePassword, settings, "", false, "XLNetAccount 密码修改验证码", profilePasswordCodeBody)
+}
+
+func (service *VerificationService) VerifyProfilePasswordCode(ctx context.Context, email string, code string) error {
+	return service.verifyCode(ctx, email, verificationPurposeProfilePassword, code)
+}
+
+func (service *VerificationService) sendCode(ctx context.Context, email string, purpose string, settings PlatformSettings, captchaToken string, requireCaptcha bool, subject string, bodyBuilder func(string) string) error {
+	if requireCaptcha {
+		if err := service.verifyCAPTCHA(ctx, settings, captchaToken); err != nil {
+			return err
+		}
+	}
+	latestCode, err := service.store.FindLatestEmailVerificationCode(ctx, email, purpose)
+	if err != nil {
+		return err
+	}
+	if latestCode != nil {
+		remaining := time.Until(latestCode.CreatedAt.Add(verificationResendInterval))
+		if remaining > 0 {
+			remainingSeconds := int((remaining + time.Second - 1) / time.Second)
+			return fmt.Errorf("%w: 同一邮箱验证码发送间隔为60秒，请在 %d 秒后重试", ErrInvalidInput, remainingSeconds)
+		}
+	}
 	code, err := generateVerificationCode()
 	if err != nil {
 		return err
 	}
-	if err := service.store.DeleteEmailVerificationCodes(ctx, email, verificationPurposeRegister); err != nil {
+	if err := service.store.DeleteEmailVerificationCodes(ctx, email, purpose); err != nil {
 		return err
 	}
 	verification := &model.EmailVerificationCode{
 		ID:        security.NewID(),
 		Email:     email,
-		Purpose:   verificationPurposeRegister,
+		Purpose:   purpose,
 		CodeHash:  security.HashToken(code),
 		ExpiresAt: time.Now().UTC().Add(verificationCodeLifetime),
 	}
 	if err := service.store.CreateEmailVerificationCode(ctx, verification); err != nil {
 		return err
 	}
-	return sendSMTPMail(settings, email, "XLNetAccount 注册验证码", registrationCodeBody(code))
+	return sendSMTPMail(settings, email, subject, bodyBuilder(code))
 }
 
 func (service *VerificationService) VerifyRegistrationCode(ctx context.Context, email string, code string) error {
-	verification, err := service.store.FindLatestEmailVerificationCode(ctx, strings.TrimSpace(strings.ToLower(email)), verificationPurposeRegister)
+	return service.verifyCode(ctx, email, verificationPurposeRegister, code)
+}
+
+func (service *VerificationService) verifyCode(ctx context.Context, email string, purpose string, code string) error {
+	verification, err := service.store.FindLatestEmailVerificationCode(ctx, strings.TrimSpace(strings.ToLower(email)), purpose)
 	if err != nil {
 		return err
 	}
@@ -217,6 +258,10 @@ func buildSMTPMessage(from string, to string, subject string, body string) strin
 
 func registrationCodeBody(code string) string {
 	return "您的 XLNetAccount 注册验证码是：" + code + "\n\n验证码 10 分钟内有效，请勿泄露给他人。"
+}
+
+func profilePasswordCodeBody(code string) string {
+	return "您的 XLNetAccount 密码修改验证码是：" + code + "\n\n验证码 10 分钟内有效，请勿泄露给他人。"
 }
 
 func generateVerificationCode() (string, error) {

@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 )
 
@@ -17,8 +16,6 @@ type Config struct {
 	OIDCKeyID         string
 	OIDCPrivateKeyPEM string
 	AllowedOrigins    []string
-	CookieName        string
-	CookieSecure      bool
 	DBDSN             string
 }
 
@@ -46,8 +43,6 @@ func Load() Config {
 		OIDCKeyID:         getEnv("OIDC_KEY_ID", ""),
 		OIDCPrivateKeyPEM: getEnv("OIDC_PRIVATE_KEY_PEM", ""),
 		AllowedOrigins:    splitCSV(getEnv("CORS_ORIGINS", "http://localhost:5173")),
-		CookieName:        getEnv("COOKIE_NAME", "sso_session"),
-		CookieSecure:      parseBool(getEnv("COOKIE_SECURE", "false")),
 		DBDSN:             dsn,
 	}
 }
@@ -58,14 +53,6 @@ func getEnv(key string, fallback string) string {
 		return fallback
 	}
 	return value
-}
-
-func parseBool(value string) bool {
-	parsed, err := strconv.ParseBool(value)
-	if err != nil {
-		return false
-	}
-	return parsed
 }
 
 func splitCSV(value string) []string {

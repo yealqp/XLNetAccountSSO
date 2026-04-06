@@ -13,29 +13,36 @@ import {
   useDialog,
   useMessage,
 } from 'naive-ui'
-import { h, onMounted, shallowRef } from 'vue'
+import { computed, h, onMounted, shallowRef, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { ApiError } from '@/api/http'
-import { deleteClient, fetchClients } from '@/api/admin'
+import { deleteClient, deleteManagedClient, fetchClients, fetchManagedClients } from '@/api/admin'
 import ClientFormDrawer from '@/components/admin/ClientFormDrawer.vue'
 import type { OAuthClientRecord } from '@/types/api'
 
 const message = useMessage()
 const dialog = useDialog()
+const route = useRoute()
 
 const clients = shallowRef<OAuthClientRecord[]>([])
 const drawerVisible = shallowRef(false)
 const drawerSaving = shallowRef(false)
 const activeClient = shallowRef<OAuthClientRecord | null>(null)
 const loadError = shallowRef('')
+const manageAll = computed(() => route.meta.manageScope === 'all')
 
 onMounted(loadClients)
+
+watch(() => route.fullPath, () => {
+  void loadClients()
+})
 
 async function loadClients() {
   loadError.value = ''
 
   try {
-    clients.value = await fetchClients()
+    clients.value = manageAll.value ? await fetchManagedClients() : await fetchClients()
   }
   catch (error) {
     loadError.value = error instanceof ApiError ? error.message : '加载客户端失败'
@@ -62,7 +69,7 @@ async function handleSaved(client: OAuthClientRecord) {
 
 async function handleDelete(client: OAuthClientRecord) {
   try {
-    await deleteClient(client.id)
+    await (manageAll.value ? deleteManagedClient(client.id) : deleteClient(client.id))
     message.success('客户端已删除')
     await loadClients()
   }
@@ -102,8 +109,8 @@ function openSecretDialog(secret: string) {
   <section class="page-stack">
     <header class="page-header">
       <div>
-        <h1 class="page-title">客户端管理</h1>
-        <p class="page-subtitle">维护应用、回调地址与 scope。</p>
+        <h1 class="page-title">{{ manageAll ? '应用管理' : '应用' }}</h1>
+        <p class="page-subtitle">{{ manageAll ? '查看全部应用并执行管理操作。' : '查看并维护您创建的应用。' }}</p>
       </div>
       <NButton type="primary" @click="openCreateDrawer">新建客户端</NButton>
     </header>
@@ -123,6 +130,7 @@ function openSecretDialog(secret: string) {
           <thead>
             <tr>
               <th>名称</th>
+              <th v-if="manageAll">所属用户</th>
               <th>Client ID</th>
               <th>类型</th>
               <th>Scope</th>
@@ -143,6 +151,7 @@ function openSecretDialog(secret: string) {
                   </div>
                 </div>
               </td>
+              <td v-if="manageAll">{{ client.owner_username || '-' }}</td>
               <td class="mono">{{ client.client_id }}</td>
               <td>
                 <NTag :type="client.client_type === 'confidential' ? 'warning' : 'info'" size="small">
@@ -182,6 +191,7 @@ function openSecretDialog(secret: string) {
       v-model:show="drawerVisible"
       v-model:saving="drawerSaving"
       :initial-client="activeClient"
+      :manage-all="manageAll"
       @saved="handleSaved"
     />
   </section>

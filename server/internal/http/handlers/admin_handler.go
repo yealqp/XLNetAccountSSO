@@ -20,11 +20,23 @@ func NewAdminHandler(adminService *service.AdminService, tokenService *service.T
 }
 
 func (handler *AdminHandler) Overview(c *fiber.Ctx) error {
+	authContext, err := middleware.CurrentAuthContext(c)
+	if err != nil {
+		return writeError(c, fiber.StatusUnauthorized, "authentication required")
+	}
+	overview, err := handler.adminService.OverviewForUser(context.Background(), authContext.User)
+	if err != nil {
+		return writeError(c, fiber.StatusInternalServerError, "load overview failed")
+	}
+	return writeSuccess(c, fiber.StatusOK, overview, "success")
+}
+
+func (handler *AdminHandler) AdminOverview(c *fiber.Ctx) error {
 	overview, err := handler.adminService.Overview(context.Background())
 	if err != nil {
 		return writeError(c, fiber.StatusInternalServerError, "load overview failed")
 	}
-	return c.JSON(overview)
+	return writeSuccess(c, fiber.StatusOK, overview, "success")
 }
 
 func (handler *AdminHandler) PublicSettings(c *fiber.Ctx) error {
@@ -32,7 +44,7 @@ func (handler *AdminHandler) PublicSettings(c *fiber.Ctx) error {
 	if err != nil {
 		return writeError(c, fiber.StatusInternalServerError, "load public settings failed")
 	}
-	return c.JSON(settings)
+	return writeSuccess(c, fiber.StatusOK, settings, "success")
 }
 
 func (handler *AdminHandler) Me(c *fiber.Ctx) error {
@@ -40,7 +52,7 @@ func (handler *AdminHandler) Me(c *fiber.Ctx) error {
 	if err != nil {
 		return writeError(c, fiber.StatusUnauthorized, "authentication required")
 	}
-	return c.JSON(fiber.Map{"user": publicUser(authContext.User)})
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{"user": publicUser(authContext.User)}, "success")
 }
 
 func (handler *AdminHandler) PlatformSettings(c *fiber.Ctx) error {
@@ -48,7 +60,7 @@ func (handler *AdminHandler) PlatformSettings(c *fiber.Ctx) error {
 	if err != nil {
 		return writeError(c, fiber.StatusInternalServerError, "load platform settings failed")
 	}
-	return c.JSON(settings)
+	return writeSuccess(c, fiber.StatusOK, settings, "success")
 }
 
 func (handler *AdminHandler) UpdatePlatformSettings(c *fiber.Ctx) error {
@@ -60,15 +72,38 @@ func (handler *AdminHandler) UpdatePlatformSettings(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "update platform settings failed")
 	}
-	return c.JSON(settings)
+	return writeSuccess(c, fiber.StatusOK, settings, "success")
+}
+
+func (handler *AdminHandler) SendTestEmail(c *fiber.Ctx) error {
+	var input service.TestEmailInput
+	if err := c.BodyParser(&input); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid test email payload")
+	}
+	if err := handler.adminService.SendTestEmail(context.Background(), input); err != nil {
+		return handleServiceError(c, err, "send test email failed")
+	}
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{"sent": true}, "success")
 }
 
 func (handler *AdminHandler) ListClients(c *fiber.Ctx) error {
+	authContext, err := middleware.CurrentAuthContext(c)
+	if err != nil {
+		return writeError(c, fiber.StatusUnauthorized, "authentication required")
+	}
+	clients, err := handler.adminService.ListUserClients(context.Background(), authContext.User)
+	if err != nil {
+		return writeError(c, fiber.StatusInternalServerError, "load clients failed")
+	}
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{"items": clients}, "success")
+}
+
+func (handler *AdminHandler) ListManagedClients(c *fiber.Ctx) error {
 	clients, err := handler.adminService.ListClients(context.Background())
 	if err != nil {
 		return writeError(c, fiber.StatusInternalServerError, "load clients failed")
 	}
-	return c.JSON(fiber.Map{"items": clients})
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{"items": clients}, "success")
 }
 
 func (handler *AdminHandler) CreateClient(c *fiber.Ctx) error {
@@ -81,7 +116,7 @@ func (handler *AdminHandler) CreateClient(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "create client failed")
 	}
-	return c.Status(fiber.StatusCreated).JSON(client)
+	return writeSuccess(c, fiber.StatusCreated, client, "success")
 }
 
 func (handler *AdminHandler) UploadClientIcon(c *fiber.Ctx) error {
@@ -93,10 +128,26 @@ func (handler *AdminHandler) UploadClientIcon(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "upload client icon failed")
 	}
-	return c.Status(fiber.StatusCreated).JSON(result)
+	return writeSuccess(c, fiber.StatusCreated, result, "success")
 }
 
 func (handler *AdminHandler) UpdateClient(c *fiber.Ctx) error {
+	authContext, err := middleware.CurrentAuthContext(c)
+	if err != nil {
+		return writeError(c, fiber.StatusUnauthorized, "authentication required")
+	}
+	var input service.UpdateClientInput
+	if err := c.BodyParser(&input); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid client payload")
+	}
+	client, err := handler.adminService.UpdateUserClient(context.Background(), authContext.User, c.Params("id"), input)
+	if err != nil {
+		return handleServiceError(c, err, "update client failed")
+	}
+	return writeSuccess(c, fiber.StatusOK, client, "success")
+}
+
+func (handler *AdminHandler) UpdateManagedClient(c *fiber.Ctx) error {
 	var input service.UpdateClientInput
 	if err := c.BodyParser(&input); err != nil {
 		return writeError(c, fiber.StatusBadRequest, "invalid client payload")
@@ -105,15 +156,27 @@ func (handler *AdminHandler) UpdateClient(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "update client failed")
 	}
-	return c.JSON(client)
+	return writeSuccess(c, fiber.StatusOK, client, "success")
 }
 
 func (handler *AdminHandler) DeleteClient(c *fiber.Ctx) error {
+	authContext, err := middleware.CurrentAuthContext(c)
+	if err != nil {
+		return writeError(c, fiber.StatusUnauthorized, "authentication required")
+	}
+	err = handler.adminService.DeleteUserClient(context.Background(), authContext.User, c.Params("id"))
+	if err != nil {
+		return handleServiceError(c, err, "delete client failed")
+	}
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{}, "success")
+}
+
+func (handler *AdminHandler) DeleteManagedClient(c *fiber.Ctx) error {
 	err := handler.adminService.DeleteClient(context.Background(), c.Params("id"))
 	if err != nil {
 		return handleServiceError(c, err, "delete client failed")
 	}
-	return c.SendStatus(fiber.StatusNoContent)
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{}, "success")
 }
 
 func (handler *AdminHandler) ListUsers(c *fiber.Ctx) error {
@@ -121,7 +184,7 @@ func (handler *AdminHandler) ListUsers(c *fiber.Ctx) error {
 	if err != nil {
 		return writeError(c, fiber.StatusInternalServerError, "load users failed")
 	}
-	return c.JSON(fiber.Map{"items": users})
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{"items": users}, "success")
 }
 
 func (handler *AdminHandler) CreateUser(c *fiber.Ctx) error {
@@ -133,7 +196,7 @@ func (handler *AdminHandler) CreateUser(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "create user failed")
 	}
-	return c.Status(fiber.StatusCreated).JSON(user)
+	return writeSuccess(c, fiber.StatusCreated, user, "success")
 }
 
 func (handler *AdminHandler) UpdateUser(c *fiber.Ctx) error {
@@ -145,7 +208,7 @@ func (handler *AdminHandler) UpdateUser(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "update user failed")
 	}
-	return c.JSON(user)
+	return writeSuccess(c, fiber.StatusOK, user, "success")
 }
 
 func (handler *AdminHandler) DeleteUser(c *fiber.Ctx) error {
@@ -154,7 +217,7 @@ func (handler *AdminHandler) DeleteUser(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "delete user failed")
 	}
-	return c.SendStatus(fiber.StatusNoContent)
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{}, "success")
 }
 
 func (handler *AdminHandler) ListTokens(c *fiber.Ctx) error {
@@ -163,7 +226,16 @@ func (handler *AdminHandler) ListTokens(c *fiber.Ctx) error {
 	if err != nil {
 		return writeError(c, fiber.StatusInternalServerError, "load tokens failed")
 	}
-	return c.JSON(fiber.Map{"items": tokens})
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{"items": tokens}, "success")
+}
+
+func (handler *AdminHandler) ListManagedTokens(c *fiber.Ctx) error {
+	authContext, _ := middleware.CurrentAuthContext(c)
+	tokens, err := handler.tokenService.ListAllTokens(context.Background(), authContext.User)
+	if err != nil {
+		return handleServiceError(c, err, "load tokens failed")
+	}
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{"items": tokens}, "success")
 }
 
 func (handler *AdminHandler) RevokeAccessToken(c *fiber.Ctx) error {
@@ -172,7 +244,7 @@ func (handler *AdminHandler) RevokeAccessToken(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "revoke access token failed")
 	}
-	return c.SendStatus(fiber.StatusNoContent)
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{}, "success")
 }
 
 func (handler *AdminHandler) RevokeRefreshToken(c *fiber.Ctx) error {
@@ -181,7 +253,7 @@ func (handler *AdminHandler) RevokeRefreshToken(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "revoke refresh token failed")
 	}
-	return c.SendStatus(fiber.StatusNoContent)
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{}, "success")
 }
 
 func (handler *AdminHandler) RevokeClientTokens(c *fiber.Ctx) error {
@@ -190,7 +262,7 @@ func (handler *AdminHandler) RevokeClientTokens(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "revoke client tokens failed")
 	}
-	return c.SendStatus(fiber.StatusNoContent)
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{}, "success")
 }
 
 func handleServiceError(c *fiber.Ctx, err error, fallback string) error {

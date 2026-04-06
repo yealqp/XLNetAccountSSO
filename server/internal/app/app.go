@@ -32,7 +32,7 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	}
 	tokenService := service.NewTokenService(store)
 
-	authHandler := handlers.NewAuthHandler(authService, adminService, verificationService, cfg)
+	authHandler := handlers.NewAuthHandler(authService, adminService, verificationService)
 	adminHandler := handlers.NewAdminHandler(adminService, tokenService)
 	oauthHandler := handlers.NewOAuthHandler(oauthService, cfg)
 
@@ -41,12 +41,11 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	})
 	app.Use(logger.New())
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     joinOrigins(cfg.AllowedOrigins),
-		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
-		AllowCredentials: true,
-		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+		AllowOrigins: joinOrigins(cfg.AllowedOrigins),
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 	}))
-	app.Use(middleware.OptionalSession(authService, cfg.CookieName))
+	app.Use(middleware.OptionalSession(authService))
 
 	app.Get("/healthz", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok"})
@@ -71,28 +70,36 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	api.Get("/auth/session", authHandler.Session)
 	api.Get("/settings/public", adminHandler.PublicSettings)
 
-	secured := api.Group("", middleware.RequireSession(authService, cfg.CookieName))
+	secured := api.Group("", middleware.RequireSession(authService))
 	secured.Get("/me", adminHandler.Me)
+	secured.Post("/me/password/code/send", authHandler.SendProfilePasswordCode)
+	secured.Put("/me/profile", authHandler.UpdateProfile)
+	secured.Get("/overview", adminHandler.Overview)
+	secured.Post("/client-icons/upload", adminHandler.UploadClientIcon)
 	secured.Get("/oauth/requests/preview", oauthHandler.Preview)
 	secured.Post("/oauth/requests/decision", oauthHandler.Decide)
+	secured.Get("/clients", adminHandler.ListClients)
+	secured.Post("/clients", adminHandler.CreateClient)
+	secured.Put("/clients/:id", adminHandler.UpdateClient)
+	secured.Delete("/clients/:id", adminHandler.DeleteClient)
 	secured.Get("/tokens", adminHandler.ListTokens)
 	secured.Delete("/tokens/access/:id", adminHandler.RevokeAccessToken)
 	secured.Delete("/tokens/refresh/:id", adminHandler.RevokeRefreshToken)
 	secured.Delete("/tokens/client/:clientId", adminHandler.RevokeClientTokens)
 
 	admin := secured.Group("", middleware.RequireAdmin())
-	admin.Get("/overview", adminHandler.Overview)
+	admin.Get("/manage/overview", adminHandler.AdminOverview)
 	admin.Get("/settings/platform", adminHandler.PlatformSettings)
 	admin.Put("/settings/platform", adminHandler.UpdatePlatformSettings)
-	admin.Post("/client-icons/upload", adminHandler.UploadClientIcon)
-	admin.Get("/clients", adminHandler.ListClients)
-	admin.Post("/clients", adminHandler.CreateClient)
-	admin.Put("/clients/:id", adminHandler.UpdateClient)
-	admin.Delete("/clients/:id", adminHandler.DeleteClient)
+	admin.Post("/settings/platform/test-email", adminHandler.SendTestEmail)
+	admin.Get("/manage/clients", adminHandler.ListManagedClients)
+	admin.Put("/manage/clients/:id", adminHandler.UpdateManagedClient)
+	admin.Delete("/manage/clients/:id", adminHandler.DeleteManagedClient)
 	admin.Get("/users", adminHandler.ListUsers)
 	admin.Post("/users", adminHandler.CreateUser)
 	admin.Put("/users/:id", adminHandler.UpdateUser)
 	admin.Delete("/users/:id", adminHandler.DeleteUser)
+	admin.Get("/manage/tokens", adminHandler.ListManagedTokens)
 
 	return app, nil
 }

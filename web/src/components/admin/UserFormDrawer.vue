@@ -31,7 +31,6 @@ const drawerWidth = computed(() => Math.min(460, Math.max(280, width.value - 16)
 const formState = reactive({
   username: '',
   password: '',
-  displayName: '',
   email: '',
   role: 'user',
   status: 'active',
@@ -48,7 +47,6 @@ watch(
 
     formState.username = props.initialUser?.username ?? ''
     formState.password = ''
-    formState.displayName = props.initialUser?.display_name ?? ''
     formState.email = props.initialUser?.email ?? ''
     formState.role = props.initialUser?.role ?? 'user'
     formState.status = props.initialUser?.status ?? 'active'
@@ -62,7 +60,6 @@ async function handleSubmit() {
   const payload = {
     username: formState.username,
     password: formState.password,
-    display_name: formState.displayName,
     email: formState.email,
     role: formState.role,
     status: formState.status,
@@ -88,15 +85,11 @@ async function handleSubmit() {
     <NDrawerContent :title="isEditing ? '编辑用户' : '新建用户'" closable>
       <NForm label-placement="top">
         <NFormItem label="用户名">
-          <NInput v-model:value="formState.username" :disabled="isEditing" />
+          <NInput v-model:value="formState.username" />
         </NFormItem>
 
         <NFormItem :label="isEditing ? '重置密码' : '初始密码'">
           <NInput v-model:value="formState.password" type="password" show-password-on="click" />
-        </NFormItem>
-
-        <NFormItem label="显示名称">
-          <NInput v-model:value="formState.displayName" />
         </NFormItem>
 
         <NFormItem label="邮箱">

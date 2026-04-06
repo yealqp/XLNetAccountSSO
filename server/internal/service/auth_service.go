@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/xianlin-network/sso-platform/server/internal/model"
 	"github.com/xianlin-network/sso-platform/server/internal/pkg/security"
@@ -30,17 +32,22 @@ func (service *AuthService) SeedDefaults(ctx context.Context) error {
 }
 
 type InitializeAdminInput struct {
-	Username    string `json:"username"`
-	Password    string `json:"password"`
-	DisplayName string `json:"display_name"`
-	Email       string `json:"email"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
 }
 
 type RegisterInput struct {
-	Email       string `json:"email"`
-	Password    string `json:"password"`
-	DisplayName string `json:"display_name"`
-	Code        string `json:"code"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Code     string `json:"code"`
+}
+
+type UpdateProfileInput struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Code     string `json:"code"`
 }
 
 func (service *AuthService) IsInitialized(ctx context.Context) (bool, error) {
@@ -60,25 +67,23 @@ func (service *AuthService) InitializeFirstAdmin(ctx context.Context, input Init
 		return nil, ErrConflict
 	}
 	username := strings.TrimSpace(input.Username)
-	password := strings.TrimSpace(input.Password)
-	if username == "" || password == "" {
+	password := input.Password
+	if username == "" || strings.TrimSpace(password) == "" {
 		return nil, ErrInvalidInput
+	}
+	if err := validateRegistrationPassword(password); err != nil {
+		return nil, err
 	}
 	hash, err := security.HashPassword(password)
 	if err != nil {
 		return nil, err
 	}
 	user := &model.User{
-		ID:           security.NewID(),
 		Username:     username,
 		PasswordHash: hash,
-		DisplayName:  strings.TrimSpace(input.DisplayName),
 		Email:        strings.TrimSpace(strings.ToLower(input.Email)),
 		Role:         "admin",
 		Status:       "active",
-	}
-	if user.DisplayName == "" {
-		user.DisplayName = username
 	}
 	if err := service.store.CreateUser(ctx, user); err != nil {
 		return nil, err
@@ -145,23 +150,36 @@ func (service *AuthService) Register(ctx context.Context, input RegisterInput) (
 	if !allowed {
 		return nil, ErrForbidden
 	}
+	username := strings.TrimSpace(input.Username)
 	email := strings.TrimSpace(strings.ToLower(input.Email))
-	password := strings.TrimSpace(input.Password)
-	if email == "" || password == "" || strings.TrimSpace(input.Code) == "" || !strings.Contains(email, "@") {
-		return nil, ErrInvalidInput
+	password := input.Password
+	if username == "" {
+		return nil, fmt.Errorf("%w: 请输入用户名", ErrInvalidInput)
+	}
+	if email == "" || !strings.Contains(email, "@") {
+		return nil, fmt.Errorf("%w: 请输入有效邮箱", ErrInvalidInput)
+	}
+	if strings.TrimSpace(password) == "" {
+		return nil, fmt.Errorf("%w: 请输入密码", ErrInvalidInput)
+	}
+	if strings.TrimSpace(input.Code) == "" {
+		return nil, fmt.Errorf("%w: 请输入验证码", ErrInvalidInput)
+	}
+	if err := validateRegistrationPassword(password); err != nil {
+		return nil, err
+	}
+	existingByUsername, err := service.store.FindUserByUsername(ctx, username)
+	if err != nil {
+		return nil, err
+	}
+	if existingByUsername != nil {
+		return nil, ErrConflict
 	}
 	existingByEmail, err := service.store.FindUserByEmail(ctx, email)
 	if err != nil {
 		return nil, err
 	}
 	if existingByEmail != nil {
-		return nil, ErrConflict
-	}
-	existingByUsername, err := service.store.FindUserByUsername(ctx, email)
-	if err != nil {
-		return nil, err
-	}
-	if existingByUsername != nil {
 		return nil, ErrConflict
 	}
 	verificationService := NewVerificationService(service.store)
@@ -173,21 +191,65 @@ func (service *AuthService) Register(ctx context.Context, input RegisterInput) (
 		return nil, err
 	}
 	user := &model.User{
-		ID:           security.NewID(),
-		Username:     email,
+		Username:     username,
 		PasswordHash: hash,
-		DisplayName:  strings.TrimSpace(input.DisplayName),
 		Email:        email,
 		Role:         "user",
 		Status:       "active",
-	}
-	if user.DisplayName == "" {
-		user.DisplayName = email
 	}
 	if err := service.store.CreateUser(ctx, user); err != nil {
 		return nil, err
 	}
 	service.logAudit(ctx, user.ID, "auth.register", user.Email, "", "")
+	return user, nil
+}
+
+func (service *AuthService) UpdateProfile(ctx context.Context, actor *model.User, input UpdateProfileInput) (*model.User, error) {
+	if actor == nil {
+		return nil, ErrUnauthorized
+	}
+	user, err := service.store.FindUserByID(ctx, actor.ID)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, ErrNotFound
+	}
+	username := strings.TrimSpace(input.Username)
+	if username == "" {
+		return nil, fmt.Errorf("%w: 用户名不能为空", ErrInvalidInput)
+	}
+	if username != user.Username {
+		existing, err := service.store.FindUserByUsername(ctx, username)
+		if err != nil {
+			return nil, err
+		}
+		if existing != nil && existing.ID != user.ID {
+			return nil, ErrConflict
+		}
+		user.Username = username
+	}
+	if strings.TrimSpace(input.Password) != "" {
+		if strings.TrimSpace(input.Code) == "" {
+			return nil, fmt.Errorf("%w: 修改密码需要邮箱验证码", ErrInvalidInput)
+		}
+		verificationService := NewVerificationService(service.store)
+		if err := verificationService.VerifyProfilePasswordCode(ctx, user.Email, input.Code); err != nil {
+			return nil, err
+		}
+		if err := validateRegistrationPassword(input.Password); err != nil {
+			return nil, err
+		}
+		hash, err := security.HashPassword(input.Password)
+		if err != nil {
+			return nil, err
+		}
+		user.PasswordHash = hash
+	}
+	if err := service.store.SaveUser(ctx, user); err != nil {
+		return nil, err
+	}
+	service.logAudit(ctx, user.ID, "auth.profile.update", user.Username, "", "")
 	return user, nil
 }
 
@@ -233,7 +295,7 @@ func (service *AuthService) Logout(ctx context.Context, rawSessionToken string) 
 	return nil
 }
 
-func (service *AuthService) logAudit(ctx context.Context, actorID string, action string, target string, ipAddress string, metadata string) {
+func (service *AuthService) logAudit(ctx context.Context, actorID uint, action string, target string, ipAddress string, metadata string) {
 	_ = service.store.CreateAuditLog(ctx, &model.AuditLog{
 		ID:        security.NewID(),
 		ActorID:   actorID,
@@ -279,4 +341,27 @@ func trimLength(value string, max int) string {
 		return trimmed
 	}
 	return trimmed[:max]
+}
+
+func validateRegistrationPassword(password string) error {
+	if len(password) < 8 || len(password) > 20 {
+		return fmt.Errorf("%w: 注册密码需为8-20位，且包含大小写字母和数字", ErrInvalidInput)
+	}
+	var hasUpper bool
+	var hasLower bool
+	var hasDigit bool
+	for _, char := range password {
+		switch {
+		case unicode.IsUpper(char):
+			hasUpper = true
+		case unicode.IsLower(char):
+			hasLower = true
+		case unicode.IsDigit(char):
+			hasDigit = true
+		}
+	}
+	if !hasUpper || !hasLower || !hasDigit {
+		return fmt.Errorf("%w: 注册密码需为8-20位，且包含大小写字母和数字", ErrInvalidInput)
+	}
+	return nil
 }

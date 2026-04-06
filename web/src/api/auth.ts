@@ -1,4 +1,4 @@
-import type { SessionResponse } from '@/types/api'
+import type { AuthTokenResponse, SessionResponse } from '@/types/api'
 
 import { request } from './http'
 
@@ -7,16 +7,29 @@ export function fetchSession() {
 }
 
 export function login(payload: { username: string; password: string }) {
-	return request<SessionResponse>('/api/auth/login', {
+	return request<AuthTokenResponse>('/api/auth/login', {
 		method: 'POST',
 		body: JSON.stringify(payload),
 	})
 }
 
-export function register(payload: { email: string; password: string; display_name: string; code: string }) {
+export function register(payload: { username: string; email: string; password: string; code: string }) {
 	return request<{ registered: boolean }>('/api/auth/register', {
 		method: 'POST',
 		body: JSON.stringify(payload),
+	})
+}
+
+export function updateProfile(payload: { username: string; password: string; code: string }) {
+	return request<SessionResponse>('/api/me/profile', {
+		method: 'PUT',
+		body: JSON.stringify(payload),
+	})
+}
+
+export function sendProfilePasswordCode() {
+	return request<{ sent: boolean }>('/api/me/password/code/send', {
+		method: 'POST',
 	})
 }
 

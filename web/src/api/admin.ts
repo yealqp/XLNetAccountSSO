@@ -6,8 +6,17 @@ export function fetchOverview() {
   return request<OverviewStats>('/api/overview')
 }
 
+export function fetchManagedOverview() {
+  return request<OverviewStats>('/api/manage/overview')
+}
+
 export async function fetchClients() {
   const response = await request<{ items: OAuthClientRecord[] }>('/api/clients')
+  return response.items
+}
+
+export async function fetchManagedClients() {
+  const response = await request<{ items: OAuthClientRecord[] }>('/api/manage/clients')
   return response.items
 }
 
@@ -25,8 +34,21 @@ export function updateClient(id: string, payload: Record<string, unknown>) {
 	})
 }
 
+export function updateManagedClient(id: string, payload: Record<string, unknown>) {
+	return request<OAuthClientRecord>(`/api/manage/clients/${id}`, {
+		method: 'PUT',
+		body: JSON.stringify(payload),
+	})
+}
+
 export function deleteClient(id: string) {
 	return request<void>(`/api/clients/${id}`, {
+		method: 'DELETE',
+	})
+}
+
+export function deleteManagedClient(id: string) {
+	return request<void>(`/api/manage/clients/${id}`, {
 		method: 'DELETE',
 	})
 }
@@ -53,14 +75,14 @@ export function createUser(payload: Record<string, unknown>) {
   })
 }
 
-export function updateUser(id: string, payload: Record<string, unknown>) {
+export function updateUser(id: number, payload: Record<string, unknown>) {
   return request<UserRecord>(`/api/users/${id}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   })
 }
 
-export function deleteUser(id: string) {
+export function deleteUser(id: number) {
   return request<void>(`/api/users/${id}`, {
     method: 'DELETE',
   })
@@ -68,6 +90,11 @@ export function deleteUser(id: string) {
 
 export async function fetchTokens() {
   const response = await request<{ items: TokenRecord[] }>('/api/tokens')
+  return response.items
+}
+
+export async function fetchManagedTokens() {
+  const response = await request<{ items: TokenRecord[] }>('/api/manage/tokens')
   return response.items
 }
 
