@@ -63,6 +63,7 @@ const (
 	settingSMTPPort          = "smtp_port"
 	settingSMTPTLS           = "smtp_tls"
 	settingCAPAPIEndpoint    = "cap_api_endpoint"
+	settingCAPSiteKey        = "cap_site_key"
 	settingCAPSecretKey      = "cap_secret_key"
 	settingWebIconURL        = "web_icon_url"
 )
@@ -76,6 +77,7 @@ type PlatformSettings struct {
 	SMTPPort          string `json:"smtp_port"`
 	SMTPTLS           bool   `json:"smtp_tls"`
 	CAPAPIEndpoint    string `json:"cap_api_endpoint"`
+	CAPSiteKey        string `json:"cap_site_key"`
 	CAPSecretKey      string `json:"cap_secret_key"`
 	WebIconURL        string `json:"web_icon_url"`
 }
@@ -128,6 +130,7 @@ func (service *AdminService) PublicSettings(ctx context.Context) (map[string]any
 		"platform_name":      settings.PlatformName,
 		"allow_registration": settings.AllowRegistration,
 		"cap_api_endpoint":   settings.CAPAPIEndpoint,
+		"cap_site_key":       settings.CAPSiteKey,
 		"web_icon_url":       settings.WebIconURL,
 	}, nil
 }
@@ -158,6 +161,7 @@ func (service *AdminService) UpdatePlatformSettings(ctx context.Context, input P
 		settingSMTPPort:          strings.TrimSpace(input.SMTPPort),
 		settingSMTPTLS:           boolString(input.SMTPTLS),
 		settingCAPAPIEndpoint:    strings.TrimSpace(input.CAPAPIEndpoint),
+		settingCAPSiteKey:        strings.TrimSpace(input.CAPSiteKey),
 		settingCAPSecretKey:      strings.TrimSpace(input.CAPSecretKey),
 	}
 	webIconURL, err := NormalizeWebIconURL(ctx, service.cfg, input.WebIconURL)
@@ -581,6 +585,12 @@ func (service *AdminService) DeleteUser(ctx context.Context, actor *model.User, 
 	if err := service.store.DeleteAccessTokensByUserID(ctx, user.ID); err != nil {
 		return err
 	}
+	if err := service.store.DeleteUserPasskeyCredentialsByUserID(ctx, user.ID); err != nil {
+		return err
+	}
+	if err := service.store.DeleteWebAuthnCeremoniesByUserID(ctx, user.ID); err != nil {
+		return err
+	}
 	if err := service.store.DeleteSessionsByUserID(ctx, user.ID); err != nil {
 		return err
 	}
@@ -620,6 +630,10 @@ func (service *AdminService) loadPlatformSettings(ctx context.Context) (Platform
 	if err != nil {
 		return PlatformSettings{}, err
 	}
+	capSiteKey, err := service.settingValue(ctx, settingCAPSiteKey, "")
+	if err != nil {
+		return PlatformSettings{}, err
+	}
 	capSecretKey, err := service.settingValue(ctx, settingCAPSecretKey, "")
 	if err != nil {
 		return PlatformSettings{}, err
@@ -637,6 +651,7 @@ func (service *AdminService) loadPlatformSettings(ctx context.Context) (Platform
 		SMTPPort:          smtpPort,
 		SMTPTLS:           parseBoolString(smtpTLS),
 		CAPAPIEndpoint:    capAPIEndpoint,
+		CAPSiteKey:        capSiteKey,
 		CAPSecretKey:      capSecretKey,
 		WebIconURL:        webIconURL,
 	}, nil

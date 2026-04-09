@@ -2,7 +2,9 @@ import { defineStore } from 'pinia'
 import { computed, shallowRef } from 'vue'
 
 import { fetchSession, login, logout } from '@/api/auth'
-import type { UserSummary } from '@/types/api'
+import { finishPasskeyLogin } from '@/api/passkeys'
+import type { AuthTokenResponse, UserSummary } from '@/types/api'
+import type { AuthenticationCredentialJSON } from '@/types/webauthn'
 import { clearAuthToken, setAuthToken } from '@/utils/authToken'
 
 export const useSessionStore = defineStore('session', () => {
@@ -27,13 +29,22 @@ export const useSessionStore = defineStore('session', () => {
     return user.value
   }
 
-  async function signIn(payload: { username: string; password: string }) {
-    const session = await login(payload)
-    setAuthToken(session.access_token)
-    user.value = session.user ?? null
-    ready.value = true
-    return user.value
-  }
+	async function signIn(payload: { username: string; password: string }) {
+		const session = await login(payload)
+		return applyAuthSession(session)
+	}
+
+	async function signInWithPasskey(payload: { session_id: string; credential: AuthenticationCredentialJSON }) {
+		const session = await finishPasskeyLogin(payload)
+		return applyAuthSession(session)
+	}
+
+	function applyAuthSession(session: AuthTokenResponse) {
+		setAuthToken(session.access_token)
+		user.value = session.user ?? null
+		ready.value = true
+		return user.value
+	}
 
   async function signOut() {
     try {
@@ -51,9 +62,10 @@ export const useSessionStore = defineStore('session', () => {
     ready,
     authenticated,
     syncSession,
-    ensureSession,
-    signIn,
-    signOut,
+		ensureSession,
+		signIn,
+		signInWithPasskey,
+		signOut,
     setUser: (nextUser: UserSummary | null) => {
       user.value = nextUser
       ready.value = true

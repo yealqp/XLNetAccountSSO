@@ -4,8 +4,11 @@ import { computed, reactive, shallowRef } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/http'
+import { startPasskeyLogin } from '@/api/passkeys'
 import { usePlatformStore } from '@/stores/platform'
 import { useSessionStore } from '@/stores/session'
+import { buildNextQuery, resolveNextTarget } from '@/utils/authNext'
+import { describePasskeyError, getPasskeyCredential, getPasskeySupportMessage } from '@/utils/webauthn'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,9 +18,15 @@ const sessionStore = useSessionStore()
 void platformStore.ensureLoaded().catch(() => {})
 
 const showRegister = computed(() => platformStore.allowRegistration)
+const registerLink = computed(() => ({
+  name: 'register',
+  query: buildNextQuery(route.query.next),
+}))
 
 const isSubmitting = shallowRef(false)
+const isPasskeySubmitting = shallowRef(false)
 const submitError = shallowRef('')
+const passkeySupportMessage = getPasskeySupportMessage()
 const formState = reactive({
   username: '',
   password: '',
@@ -46,14 +55,30 @@ async function handleSubmit() {
   }
 }
 
-function resolveNextTarget(nextValue: unknown) {
-  const next = Array.isArray(nextValue) ? nextValue[0] : nextValue
+async function handlePasskeySignIn() {
+  isPasskeySubmitting.value = true
+  submitError.value = ''
 
-  if (typeof next === 'string' && next.startsWith('/') && !next.startsWith('//')) {
-    return next
+  try {
+    const start = await startPasskeyLogin()
+    const credential = await getPasskeyCredential(start.options)
+
+    await sessionStore.signInWithPasskey({
+      session_id: start.session_id,
+      credential,
+    })
+
+    message.success('登录成功')
+    await router.replace(resolveNextTarget(route.query.next))
   }
-
-  return '/admin'
+  catch (error) {
+    const fallbackMessage = error instanceof ApiError ? error.message : describePasskeyError(error)
+    submitError.value = fallbackMessage
+    message.error(fallbackMessage)
+  }
+  finally {
+    isPasskeySubmitting.value = false
+  }
 }
 </script>
 
@@ -85,13 +110,31 @@ function resolveNextTarget(nextValue: unknown) {
         {{ submitError }}
       </NAlert>
 
-      <NButton type="primary" size="large" block :loading="isSubmitting" attr-type="submit">
-        登录
-      </NButton>
+      <NAlert v-if="passkeySupportMessage" type="warning" :show-icon="false">
+        {{ passkeySupportMessage }}
+      </NAlert>
+
+      <div class="auth-action-stack">
+        <NButton type="primary" size="large" block :loading="isSubmitting" :disabled="isPasskeySubmitting" attr-type="submit">
+          登录
+        </NButton>
+        <NButton
+          secondary
+          size="large"
+          block
+          attr-type="button"
+          data-testid="passkey-login-button"
+          :loading="isPasskeySubmitting"
+          :disabled="Boolean(passkeySupportMessage) || isSubmitting"
+          @click="handlePasskeySignIn"
+        >
+          使用通行密钥登录
+        </NButton>
+      </div>
     </NForm>
 
     <div v-if="showRegister" class="auth-link-row">
-      <RouterLink to="/auth/register">没有账号？立即注册</RouterLink>
+      <RouterLink :to="registerLink">没有账号？立即注册</RouterLink>
     </div>
 
   </div>
@@ -136,6 +179,11 @@ function resolveNextTarget(nextValue: unknown) {
 
 .auth-link-row {
   margin-top: 16px;
+}
+
+.auth-action-stack {
+  display: grid;
+  gap: 12px;
 }
 
 .auth-link-row a {

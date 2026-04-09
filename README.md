@@ -24,6 +24,13 @@ An OAuth2-compatible SSO starter built with Vue 3, Naive UI, TypeScript, Vue Rou
    - `go run ./cmd/sso` inside `server/`
    - Optional separate frontend dev server: `pnpm --filter @sso/web dev`
 
+### Passkeys / WebAuthn
+
+- Passkey login and binding use WebAuthn and therefore require a secure context (`https://...`) or `localhost`.
+- `WEBAUTHN_RP_ID` should match the login page domain only (no scheme or port). Leave it empty to derive from `WEB_BASE_URL`/`SERVER_BASE_URL`.
+- `WEBAUTHN_RP_ORIGINS` accepts a comma-separated list of allowed page origins. In local dev with a separate Vite origin, include that frontend origin here if the defaults are not enough.
+- The backend now exposes passkey endpoints under `/api/auth/passkeys/...` and `/api/me/passkeys/...`.
+
 ## First-run setup
 
 - The system no longer seeds a default admin account.
@@ -68,4 +75,4 @@ If you want to change host URLs, database credentials, or seeded account values 
 
 - `pnpm --filter @sso/web build` writes the frontend bundle into `server/internal/app/web-dist/`, and the Go server embeds that directory into the final binary.
 - The Docker server image builds the frontend first, then compiles a single backend binary with embedded assets.
-- The Docker stack is configured for local development-style URLs and OIDC can be enabled through the OIDC-related environment variables in the example files.
+- The Docker stack is configured for local development-style URLs. OIDC and passkey/WebAuthn behavior can be adjusted through the related environment variables in the example files.

@@ -42,12 +42,17 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   }
 
   const rawText = await response.text()
-  const data = rawText ? JSON.parse(rawText) : null
+  const data = parseResponseData(rawText)
 
   const envelope = isApiEnvelope<T>(data) ? data : null
 
   if (!response.ok) {
-    const message = envelope?.message || (typeof data?.message === 'string' ? data.message : 'Request failed')
+    const message = envelope?.message
+      || (typeof data === 'object' && data !== null && 'message' in data && typeof data.message === 'string'
+        ? data.message
+        : typeof data === 'string' && data.trim()
+          ? data
+          : 'Request failed')
     if (response.status === 401) {
       void handleUnauthorizedRedirect()
     }
@@ -59,6 +64,19 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   }
 
   return data as T
+}
+
+function parseResponseData(rawText: string) {
+  if (!rawText) {
+    return null
+  }
+
+  try {
+    return JSON.parse(rawText) as unknown
+  }
+  catch {
+    return rawText
+  }
 }
 
 function isApiEnvelope<T>(value: unknown): value is ApiEnvelope<T> {

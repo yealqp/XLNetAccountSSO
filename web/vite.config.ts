@@ -33,6 +33,10 @@ export default defineConfig(({ mode }: ConfigEnv) => {
           target: apiTarget,
           changeOrigin: true,
         },
+        '/.well-known': {
+          target: apiTarget,
+          changeOrigin: true,
+        },
         '/oauth': {
           target: apiTarget,
           changeOrigin: true,

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -162,7 +163,7 @@ func (service *OAuthService) UserInfo(ctx context.Context, rawToken string) (map
 		return nil, err
 	}
 	response := map[string]any{
-		"sub": user.ID,
+		"sub": subjectString(user.ID),
 	}
 	if HasScope(accessToken.Scope, "profile") {
 		response["preferred_username"] = user.Username
@@ -211,7 +212,7 @@ func (service *OAuthService) Introspect(ctx context.Context, rawToken string) (m
 	if err == nil {
 		return map[string]any{
 			"active":    true,
-			"sub":       user.ID,
+			"sub":       subjectString(user.ID),
 			"username":  user.Username,
 			"client_id": accessToken.ClientID,
 			"scope":     accessToken.Scope,
@@ -401,7 +402,7 @@ func (service *OAuthService) issueIDToken(ctx context.Context, clientID string, 
 		"exp": issuedAt.Add(accessTokenLifetime).Unix(),
 		"iat": issuedAt.Unix(),
 		"iss": service.cfg.IssuerURL(),
-		"sub": user.ID,
+		"sub": subjectString(user.ID),
 	}
 	if strings.TrimSpace(nonce) != "" {
 		claims["nonce"] = strings.TrimSpace(nonce)
@@ -514,6 +515,10 @@ func buildRedirect(rawURL string, values map[string]string) string {
 	}
 	parsed.RawQuery = query.Encode()
 	return parsed.String()
+}
+
+func subjectString(id uint) string {
+	return strconv.FormatUint(uint64(id), 10)
 }
 
 func contains(values []string, expected string) bool {

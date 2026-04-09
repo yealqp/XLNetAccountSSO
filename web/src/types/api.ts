@@ -19,6 +19,14 @@ export interface AuthTokenResponse extends SessionResponse {
   expires_in: number
 }
 
+export interface PasskeyRecord {
+	id: string
+	name: string
+	created_at: string
+	updated_at: string
+	last_used_at: string | null
+}
+
 export interface OverviewStats {
   users: number
   clients: number

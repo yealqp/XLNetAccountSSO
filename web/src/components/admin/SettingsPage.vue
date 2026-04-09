@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { NAlert, NButton, NCard, NForm, NFormItem, NInput, NSpace, NText, useMessage } from 'naive-ui'
+import { NAlert, NButton, NCard, NForm, NFormItem, NInput, NSpace, NSpin, NText, useMessage } from 'naive-ui'
 import { computed, onBeforeUnmount, onMounted, reactive, shallowRef } from 'vue'
 
 import { sendProfilePasswordCode, updateProfile } from '@/api/auth'
 import { ApiError } from '@/api/http'
+import { deletePasskey, fetchPasskeys, finishPasskeyRegistration, startPasskeyRegistration } from '@/api/passkeys'
 import { useSessionStore } from '@/stores/session'
+import type { PasskeyRecord } from '@/types/api'
+import { createPasskeyCredential, describePasskeyError, getPasskeySupportMessage } from '@/utils/webauthn'
 
 const message = useMessage()
 const sessionStore = useSessionStore()
@@ -12,6 +15,11 @@ const sessionStore = useSessionStore()
 const isSavingProfile = shallowRef(false)
 const isSendingProfileCode = shallowRef(false)
 const loadError = shallowRef('')
+const isLoadingPasskeys = shallowRef(false)
+const isCreatingPasskey = shallowRef(false)
+const deletingPasskeyId = shallowRef('')
+const passkeyError = shallowRef('')
+const passkeys = shallowRef<PasskeyRecord[]>([])
 
 const profileState = reactive({
   username: '',
@@ -19,10 +27,14 @@ const profileState = reactive({
   password: '',
   code: '',
 })
+const passkeyState = reactive({
+  name: '',
+})
 
 const passwordHint = '密码需为 8-20 位，且包含大写字母、小写字母和数字'
 const resendRemaining = shallowRef(0)
 let resendTimer: ReturnType<typeof setInterval> | null = null
+const passkeySupportMessage = getPasskeySupportMessage()
 
 const profilePasswordChecks = computed(() => {
   const password = profileState.password
@@ -42,6 +54,7 @@ const sendCodeDisabled = computed(() => isSendingProfileCode.value || resendRema
 onMounted(() => {
   profileState.username = sessionStore.user?.username ?? ''
   profileState.email = sessionStore.user?.email ?? ''
+  void loadPasskeys()
 })
 
 onBeforeUnmount(() => {
@@ -101,6 +114,73 @@ async function handleSendProfileCode() {
   finally {
     isSendingProfileCode.value = false
   }
+}
+
+async function loadPasskeys() {
+	isLoadingPasskeys.value = true
+	passkeyError.value = ''
+	try {
+		const response = await fetchPasskeys()
+		passkeys.value = response.items
+	}
+	catch (error) {
+		passkeyError.value = error instanceof ApiError ? error.message : '加载通行密钥失败'
+	}
+	finally {
+		isLoadingPasskeys.value = false
+	}
+}
+
+async function handleCreatePasskey() {
+	isCreatingPasskey.value = true
+	passkeyError.value = ''
+	try {
+		const start = await startPasskeyRegistration()
+		const credential = await createPasskeyCredential(start.options)
+		const response = await finishPasskeyRegistration({
+			session_id: start.session_id,
+			name: passkeyState.name.trim() || undefined,
+			credential,
+		})
+		passkeys.value = [response.credential, ...passkeys.value.filter(item => item.id !== response.credential.id)]
+		passkeyState.name = ''
+		message.success('通行密钥已添加')
+	}
+	catch (error) {
+		passkeyError.value = error instanceof ApiError ? error.message : describePasskeyError(error)
+		message.error(passkeyError.value)
+	}
+	finally {
+		isCreatingPasskey.value = false
+	}
+}
+
+async function handleDeletePasskey(passkeyId: string) {
+	deletingPasskeyId.value = passkeyId
+	passkeyError.value = ''
+	try {
+		await deletePasskey(passkeyId)
+		passkeys.value = passkeys.value.filter(item => item.id !== passkeyId)
+		message.success('通行密钥已删除')
+	}
+	catch (error) {
+		passkeyError.value = error instanceof ApiError ? error.message : '删除通行密钥失败'
+		message.error(passkeyError.value)
+	}
+	finally {
+		deletingPasskeyId.value = ''
+	}
+}
+
+function formatPasskeyTime(value: string | null) {
+	if (!value) {
+		return '未使用'
+	}
+	const date = new Date(value)
+	if (Number.isNaN(date.getTime())) {
+		return value
+	}
+	return date.toLocaleString('zh-CN', { hour12: false })
 }
 
 function startResendCountdown(seconds: number) {
@@ -182,10 +262,92 @@ function extractRetryAfter(message: string) {
         </NButton>
       </NForm>
     </NCard>
+
+		<NCard title="通行密钥">
+			<NSpace vertical :size="16">
+				<NText depth="3">使用当前设备支持的通行密钥完成无密码登录。保留密码登录作为回退方式。</NText>
+
+				<NAlert v-if="passkeySupportMessage" type="warning" :show-icon="false">
+					{{ passkeySupportMessage }}
+				</NAlert>
+
+				<NAlert v-if="passkeyError" type="error" :show-icon="false">
+					{{ passkeyError }}
+				</NAlert>
+
+				<NForm label-placement="top" @submit.prevent="handleCreatePasskey">
+					<NFormItem label="通行密钥名称">
+						<NSpace style="width: 100%;" :wrap="false">
+							<NInput v-model:value="passkeyState.name" placeholder="当前设备（可选）" />
+							<NButton
+								type="primary"
+								attr-type="submit"
+								data-testid="passkey-enroll-button"
+								:loading="isCreatingPasskey"
+								:disabled="Boolean(passkeySupportMessage)"
+							>
+								添加通行密钥
+							</NButton>
+						</NSpace>
+					</NFormItem>
+				</NForm>
+
+				<NSpin :show="isLoadingPasskeys">
+					<div v-if="passkeys.length > 0" class="passkey-list">
+						<div v-for="passkey in passkeys" :key="passkey.id" class="passkey-item">
+							<div class="passkey-item-main">
+								<div class="passkey-name">{{ passkey.name }}</div>
+								<NText depth="3">创建于 {{ formatPasskeyTime(passkey.created_at) }}</NText>
+								<NText depth="3">最近使用 {{ formatPasskeyTime(passkey.last_used_at) }}</NText>
+							</div>
+							<NButton
+								secondary
+								type="error"
+								data-testid="passkey-delete-button"
+								:loading="deletingPasskeyId === passkey.id"
+								@click="handleDeletePasskey(passkey.id)"
+							>
+								删除
+							</NButton>
+						</div>
+					</div>
+					<NText v-else depth="3">当前还没有绑定通行密钥。</NText>
+				</NSpin>
+			</NSpace>
+		</NCard>
   </section>
 </template>
 
 <style scoped>
+.passkey-list {
+	display: grid;
+	gap: 12px;
+}
+
+.passkey-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 14px 16px;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 10px;
+	background: rgba(255, 255, 255, 0.02);
+}
+
+.passkey-item-main {
+	display: grid;
+	gap: 4px;
+	min-width: 0;
+}
+
+.passkey-name {
+	font-size: 15px;
+	font-weight: 600;
+	color: #eff6ff;
+	overflow-wrap: anywhere;
+}
+
 .password-rule-list {
   display: grid;
   gap: 6px;
@@ -206,5 +368,12 @@ function extractRetryAfter(message: string) {
 
 .password-rule.passed {
   color: #7ed6a7;
+}
+
+@media (max-width: 720px) {
+	.passkey-item {
+		align-items: flex-start;
+		flex-direction: column;
+	}
 }
 </style>

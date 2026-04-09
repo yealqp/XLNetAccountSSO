@@ -110,28 +110,10 @@ func (service *AuthService) Login(ctx context.Context, username string, password
 	if err := security.ComparePassword(user.PasswordHash, password); err != nil {
 		return nil, "", nil, ErrUnauthorized
 	}
-
-	rawSessionToken, err := security.NewOpaqueToken(32)
+	rawSessionToken, session, err := service.createSession(ctx, user, meta, "auth.login")
 	if err != nil {
 		return nil, "", nil, err
 	}
-
-	now := time.Now().UTC()
-	session := &model.UserSession{
-		ID:               security.NewID(),
-		SessionTokenHash: security.HashToken(rawSessionToken),
-		UserID:           user.ID,
-		IPAddress:        meta.IPAddress,
-		UserAgent:        trimLength(meta.UserAgent, 255),
-		LastSeenAt:       now,
-		ExpiresAt:        now.Add(sessionLifetime),
-	}
-
-	if err := service.store.CreateSession(ctx, session); err != nil {
-		return nil, "", nil, err
-	}
-
-	service.logAudit(ctx, user.ID, "auth.login", user.Username, meta.IPAddress, "")
 	return user, rawSessionToken, session, nil
 }
 
@@ -293,6 +275,31 @@ func (service *AuthService) Logout(ctx context.Context, rawSessionToken string) 
 	}
 	service.logAudit(ctx, session.UserID, "auth.logout", session.ID, session.IPAddress, "")
 	return nil
+}
+
+func (service *AuthService) createSession(ctx context.Context, user *model.User, meta SessionMeta, action string) (string, *model.UserSession, error) {
+	if user == nil {
+		return "", nil, ErrUnauthorized
+	}
+	rawSessionToken, err := security.NewOpaqueToken(32)
+	if err != nil {
+		return "", nil, err
+	}
+	now := time.Now().UTC()
+	session := &model.UserSession{
+		ID:               security.NewID(),
+		SessionTokenHash: security.HashToken(rawSessionToken),
+		UserID:           user.ID,
+		IPAddress:        meta.IPAddress,
+		UserAgent:        trimLength(meta.UserAgent, 255),
+		LastSeenAt:       now,
+		ExpiresAt:        now.Add(sessionLifetime),
+	}
+	if err := service.store.CreateSession(ctx, session); err != nil {
+		return "", nil, err
+	}
+	service.logAudit(ctx, user.ID, action, user.Username, meta.IPAddress, "")
+	return rawSessionToken, session, nil
 }
 
 func (service *AuthService) logAudit(ctx context.Context, actorID uint, action string, target string, ipAddress string, metadata string) {

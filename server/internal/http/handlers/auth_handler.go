@@ -6,18 +6,20 @@ import (
 	"time"
 
 	"github.com/XianLinNet/XLNetAccount/internal/http/middleware"
+	"github.com/XianLinNet/XLNetAccount/internal/model"
 	"github.com/XianLinNet/XLNetAccount/internal/service"
 	"github.com/gofiber/fiber/v2"
 )
 
 type AuthHandler struct {
 	authService         *service.AuthService
+	passkeyService      *service.PasskeyService
 	adminService        *service.AdminService
 	verificationService *service.VerificationService
 }
 
-func NewAuthHandler(authService *service.AuthService, adminService *service.AdminService, verificationService *service.VerificationService) *AuthHandler {
-	return &AuthHandler{authService: authService, adminService: adminService, verificationService: verificationService}
+func NewAuthHandler(authService *service.AuthService, passkeyService *service.PasskeyService, adminService *service.AdminService, verificationService *service.VerificationService) *AuthHandler {
+	return &AuthHandler{authService: authService, passkeyService: passkeyService, adminService: adminService, verificationService: verificationService}
 }
 
 func (handler *AuthHandler) Login(c *fiber.Ctx) error {
@@ -42,13 +44,7 @@ func (handler *AuthHandler) Login(c *fiber.Ctx) error {
 		return writeError(c, fiber.StatusInternalServerError, "login failed")
 	}
 
-	return writeSuccess(c, fiber.StatusOK, fiber.Map{
-		"authenticated": true,
-		"access_token":  rawSessionToken,
-		"token_type":    "Bearer",
-		"expires_in":    int(time.Until(session.ExpiresAt).Seconds()),
-		"user":          publicUser(user),
-	}, "success")
+	return writeSuccess(c, fiber.StatusOK, authSessionPayload(user, rawSessionToken, session), "success")
 }
 
 func (handler *AuthHandler) Register(c *fiber.Ctx) error {
@@ -195,4 +191,14 @@ func (handler *AuthHandler) Session(c *fiber.Ctx) error {
 		"authenticated": true,
 		"user":          publicUser(authContext.User),
 	}, "success")
+}
+
+func authSessionPayload(user *model.User, rawSessionToken string, session *model.UserSession) fiber.Map {
+	return fiber.Map{
+		"authenticated": true,
+		"access_token":  rawSessionToken,
+		"token_type":    "Bearer",
+		"expires_in":    int(time.Until(session.ExpiresAt).Seconds()),
+		"user":          publicUser(user),
+	}
 }

@@ -7,6 +7,7 @@ import { ApiError } from '@/api/http'
 import { usePlatformStore } from '@/stores/platform'
 import { useSessionStore } from '@/stores/session'
 import { useSetupStore } from '@/stores/setup'
+import { resolveNextTarget } from '@/utils/authNext'
 
 const route = useRoute()
 const router = useRouter()
@@ -57,13 +58,6 @@ async function handleSubmit() {
 	}
 }
 
-function resolveNextTarget(nextValue: unknown) {
-	const next = Array.isArray(nextValue) ? nextValue[0] : nextValue
-	if (typeof next === 'string' && next.startsWith('/') && !next.startsWith('//')) {
-		return next
-	}
-	return '/admin'
-	}
 </script>
 
 <template>

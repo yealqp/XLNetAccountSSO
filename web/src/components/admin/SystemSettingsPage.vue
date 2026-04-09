@@ -25,9 +25,10 @@ const formState = reactive({
   smtpPassword: '',
   smtpPort: 587,
   smtpTLS: true,
-  capApiEndpoint: '',
-  capSecretKey: '',
-  webIconUrl: '',
+		capApiEndpoint: '',
+		capSiteKey: '',
+		capSecretKey: '',
+		webIconUrl: '',
   testEmail: '',
 })
 
@@ -56,10 +57,11 @@ async function loadSettings() {
     formState.smtpUser = settings.smtp_user ?? ''
     formState.smtpPassword = settings.smtp_password ?? ''
     formState.smtpPort = Number(settings.smtp_port || 587)
-    formState.smtpTLS = settings.smtp_tls ?? true
-    formState.capApiEndpoint = settings.cap_api_endpoint ?? ''
-    formState.capSecretKey = settings.cap_secret_key ?? ''
-    formState.webIconUrl = settings.web_icon_url ?? ''
+		formState.smtpTLS = settings.smtp_tls ?? true
+		formState.capApiEndpoint = settings.cap_api_endpoint ?? ''
+		formState.capSiteKey = settings.cap_site_key ?? ''
+		formState.capSecretKey = settings.cap_secret_key ?? ''
+		formState.webIconUrl = settings.web_icon_url ?? ''
     previewLoadFailed.value = false
     resetLocalPreview()
   }
@@ -108,9 +110,10 @@ async function handleSubmit() {
       smtp_password: formState.smtpPassword,
       smtp_port: String(formState.smtpPort || ''),
       smtp_tls: formState.smtpTLS,
-      cap_api_endpoint: formState.capApiEndpoint,
-      cap_secret_key: formState.capSecretKey,
-      web_icon_url: formState.webIconUrl,
+			cap_api_endpoint: formState.capApiEndpoint,
+			cap_site_key: formState.capSiteKey,
+			cap_secret_key: formState.capSecretKey,
+			web_icon_url: formState.webIconUrl,
     })
     message.success('系统设置已保存')
   }
@@ -203,11 +206,15 @@ function resetLocalPreview() {
           <NSwitch v-model:value="formState.smtpTLS" />
         </NFormItem>
 
-        <NFormItem label="CAP.js API Endpoint">
-          <NInput v-model:value="formState.capApiEndpoint" placeholder="https://cap.example.com/site-key/" />
-        </NFormItem>
+		<NFormItem label="CAP.js API Endpoint">
+		  <NInput v-model:value="formState.capApiEndpoint" placeholder="https://cap.example.com" />
+		</NFormItem>
 
-        <NFormItem label="CAP.js Secret Key">
+		<NFormItem label="CAP.js Site Key">
+		  <NInput v-model:value="formState.capSiteKey" placeholder="CAP.js site key" />
+		</NFormItem>
+
+		<NFormItem label="CAP.js Secret Key">
           <NInput v-model:value="formState.capSecretKey" type="password" show-password-on="click" placeholder="CAP.js secret key" />
         </NFormItem>
 

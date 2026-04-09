@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -11,6 +12,8 @@ type Config struct {
 	Port              string
 	ServerBaseURL     string
 	WebBaseURL        string
+	WebAuthnRPID      string
+	WebAuthnRPOrigins []string
 	AssetDir          string
 	OIDCIssuer        string
 	OIDCKeyID         string
@@ -32,17 +35,28 @@ func Load() Config {
 
 	serverBaseURL := strings.TrimRight(getEnv("SERVER_BASE_URL", "http://localhost:8080"), "/")
 	webBaseURL := strings.TrimRight(getEnv("WEB_BASE_URL", serverBaseURL), "/")
+	allowedOrigins := splitCSV(getEnv("CORS_ORIGINS", "http://localhost:5173"))
+	webAuthnRPOrigins := normalizeOrigins(splitCSV(getEnv("WEBAUTHN_RP_ORIGINS", "")))
+	if len(webAuthnRPOrigins) == 0 {
+		webAuthnRPOrigins = defaultWebAuthnOrigins(webBaseURL, serverBaseURL, allowedOrigins)
+	}
+	webAuthnRPID := strings.TrimSpace(getEnv("WEBAUTHN_RP_ID", ""))
+	if webAuthnRPID == "" {
+		webAuthnRPID = firstAvailableHost(webBaseURL, allowedOrigins, serverBaseURL)
+	}
 
 	return Config{
 		AppName:           getEnv("APP_NAME", "XLNetAccount"),
 		Port:              getEnv("PORT", "8080"),
 		ServerBaseURL:     serverBaseURL,
 		WebBaseURL:        webBaseURL,
+		WebAuthnRPID:      webAuthnRPID,
+		WebAuthnRPOrigins: webAuthnRPOrigins,
 		AssetDir:          getEnv("ASSET_DIR", "./data"),
 		OIDCIssuer:        strings.TrimRight(getEnv("OIDC_ISSUER", serverBaseURL), "/"),
 		OIDCKeyID:         getEnv("OIDC_KEY_ID", ""),
 		OIDCPrivateKeyPEM: getEnv("OIDC_PRIVATE_KEY_PEM", ""),
-		AllowedOrigins:    splitCSV(getEnv("CORS_ORIGINS", "http://localhost:5173")),
+		AllowedOrigins:    allowedOrigins,
 		DBDSN:             dsn,
 	}
 }
@@ -63,6 +77,62 @@ func splitCSV(value string) []string {
 		if trimmed != "" {
 			items = append(items, trimmed)
 		}
+	}
+	return items
+}
+
+func normalizeOrigins(values []string) []string {
+	items := normalizeList(values)
+	origins := make([]string, 0, len(items))
+	for _, item := range items {
+		trimmed := strings.TrimRight(strings.TrimSpace(item), "/")
+		if trimmed == "" {
+			continue
+		}
+		origins = append(origins, trimmed)
+	}
+	return origins
+}
+
+func defaultWebAuthnOrigins(webBaseURL string, serverBaseURL string, allowedOrigins []string) []string {
+	origins := normalizeOrigins(append([]string{webBaseURL, serverBaseURL}, allowedOrigins...))
+	if len(origins) > 0 {
+		return origins
+	}
+	return []string{"http://localhost:8080"}
+}
+
+func hostFromURL(raw string) string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(parsed.Hostname())
+}
+
+func firstAvailableHost(primary string, alternatives []string, fallback string) string {
+	for _, candidate := range append([]string{primary}, append(alternatives, fallback)...) {
+		host := hostFromURL(candidate)
+		if host != "" {
+			return host
+		}
+	}
+	return "localhost"
+}
+
+func normalizeList(values []string) []string {
+	items := make([]string, 0, len(values))
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		items = append(items, trimmed)
 	}
 	return items
 }

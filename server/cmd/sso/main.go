@@ -29,6 +29,8 @@ func main() {
 		&model.AccessToken{},
 		&model.RefreshToken{},
 		&model.UserSession{},
+		&model.UserPasskeyCredential{},
+		&model.WebAuthnCeremony{},
 		&model.AuditLog{},
 	); err != nil {
 		log.Fatalf("auto migrate schema: %v", err)

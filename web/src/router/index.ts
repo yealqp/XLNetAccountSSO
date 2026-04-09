@@ -127,12 +127,15 @@ router.beforeEach(async (to) => {
   }
 
   if (initialized && (to.name === 'login' || to.name === 'register' || to.name === 'authorize')) {
-		await platformStore.ensureLoaded().catch(() => {})
-	}
+    await platformStore.ensureLoaded().catch(() => {})
+  }
 
   if (to.name === 'register' && !platformStore.allowRegistration) {
-		return { name: 'login' }
-	}
+    return {
+      name: 'login',
+      query: to.query.next === undefined ? undefined : { next: to.query.next },
+    }
+  }
 
   if (to.meta.requiresAuth) {
     await sessionStore.ensureSession()

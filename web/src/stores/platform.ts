@@ -10,6 +10,7 @@ export const usePlatformStore = defineStore('platform', () => {
 	const platformName = shallowRef(fallbackPlatformName)
 	const allowRegistration = shallowRef(false)
 	const capApiEndpoint = shallowRef('')
+	const capSiteKey = shallowRef('')
 	const webIconURL = shallowRef('')
 	const ready = shallowRef(false)
 
@@ -46,6 +47,7 @@ export const usePlatformStore = defineStore('platform', () => {
 		smtp_port: string
 		smtp_tls: boolean
 		cap_api_endpoint: string
+		cap_site_key: string
 		cap_secret_key: string
 		web_icon_url: string
 	}) {
@@ -55,10 +57,11 @@ export const usePlatformStore = defineStore('platform', () => {
 		return response
 	}
 
-	function applyPublicSettings(value: { platform_name: string; allow_registration?: boolean; cap_api_endpoint?: string; web_icon_url?: string }) {
+	function applyPublicSettings(value: { platform_name: string; allow_registration?: boolean; cap_api_endpoint?: string; cap_site_key?: string; web_icon_url?: string }) {
 		setPlatformName(value.platform_name)
 		allowRegistration.value = Boolean(value.allow_registration)
 		capApiEndpoint.value = value.cap_api_endpoint?.trim() || ''
+		capSiteKey.value = value.cap_site_key?.trim() || ''
 		setWebIcon(value.web_icon_url)
 	}
 
@@ -91,6 +94,7 @@ export const usePlatformStore = defineStore('platform', () => {
 		platformName,
 		allowRegistration,
 		capApiEndpoint,
+		capSiteKey,
 		webIconURL,
 		displayName,
 		ready,

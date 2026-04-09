@@ -49,6 +49,15 @@ func (store *Store) FindUserByID(ctx context.Context, id uint) (*model.User, err
 	return &user, err
 }
 
+func (store *Store) FindUserByWebAuthnUserHandle(ctx context.Context, handle string) (*model.User, error) {
+	var user model.User
+	err := store.db.WithContext(ctx).Where("web_authn_user_handle = ?", handle).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &user, err
+}
+
 func (store *Store) CountUsers(ctx context.Context) (int64, error) {
 	var count int64
 	err := store.db.WithContext(ctx).Model(&model.User{}).Count(&count).Error
@@ -183,6 +192,70 @@ func (store *Store) SaveSession(ctx context.Context, session *model.UserSession)
 
 func (store *Store) DeleteSessionsByUserID(ctx context.Context, userID uint) error {
 	return store.db.WithContext(ctx).Delete(&model.UserSession{}, "user_id = ?", userID).Error
+}
+
+func (store *Store) CreateUserPasskeyCredential(ctx context.Context, credential *model.UserPasskeyCredential) error {
+	return store.db.WithContext(ctx).Create(credential).Error
+}
+
+func (store *Store) FindUserPasskeyCredentialByID(ctx context.Context, id string) (*model.UserPasskeyCredential, error) {
+	var credential model.UserPasskeyCredential
+	err := store.db.WithContext(ctx).Where("id = ?", id).First(&credential).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &credential, err
+}
+
+func (store *Store) FindUserPasskeyCredentialByCredentialID(ctx context.Context, credentialID string) (*model.UserPasskeyCredential, error) {
+	var credential model.UserPasskeyCredential
+	err := store.db.WithContext(ctx).Where("credential_id = ?", credentialID).First(&credential).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &credential, err
+}
+
+func (store *Store) ListUserPasskeyCredentials(ctx context.Context, userID uint) ([]model.UserPasskeyCredential, error) {
+	var credentials []model.UserPasskeyCredential
+	err := store.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("created_at desc").
+		Find(&credentials).Error
+	return credentials, err
+}
+
+func (store *Store) SaveUserPasskeyCredential(ctx context.Context, credential *model.UserPasskeyCredential) error {
+	return store.db.WithContext(ctx).Save(credential).Error
+}
+
+func (store *Store) DeleteUserPasskeyCredentialByID(ctx context.Context, id string) error {
+	return store.db.WithContext(ctx).Delete(&model.UserPasskeyCredential{}, "id = ?", id).Error
+}
+
+func (store *Store) DeleteUserPasskeyCredentialsByUserID(ctx context.Context, userID uint) error {
+	return store.db.WithContext(ctx).Delete(&model.UserPasskeyCredential{}, "user_id = ?", userID).Error
+}
+
+func (store *Store) CreateWebAuthnCeremony(ctx context.Context, ceremony *model.WebAuthnCeremony) error {
+	return store.db.WithContext(ctx).Create(ceremony).Error
+}
+
+func (store *Store) FindWebAuthnCeremonyByID(ctx context.Context, id string) (*model.WebAuthnCeremony, error) {
+	var ceremony model.WebAuthnCeremony
+	err := store.db.WithContext(ctx).Where("id = ?", id).First(&ceremony).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &ceremony, err
+}
+
+func (store *Store) SaveWebAuthnCeremony(ctx context.Context, ceremony *model.WebAuthnCeremony) error {
+	return store.db.WithContext(ctx).Save(ceremony).Error
+}
+
+func (store *Store) DeleteWebAuthnCeremoniesByUserID(ctx context.Context, userID uint) error {
+	return store.db.WithContext(ctx).Delete(&model.WebAuthnCeremony{}, "user_id = ?", userID).Error
 }
 
 func (store *Store) CreateAuthorizationCode(ctx context.Context, code *model.AuthorizationCode) error {

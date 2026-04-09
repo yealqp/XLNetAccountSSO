@@ -9,6 +9,7 @@ import { register, sendRegisterCode } from '@/api/auth'
 import { ApiError } from '@/api/http'
 import { usePlatformStore } from '@/stores/platform'
 import { useSessionStore } from '@/stores/session'
+import { buildNextQuery, resolveNextTarget } from '@/utils/authNext'
 
 interface CapSolveEvent extends Event {
 	detail: {
@@ -43,7 +44,11 @@ const formState = reactive({
 
 void platformStore.ensureLoaded().catch(() => {})
 
-const capEnabled = computed(() => Boolean(platformStore.capApiEndpoint))
+const capEnabled = computed(() => Boolean(platformStore.capApiEndpoint && platformStore.capSiteKey))
+const loginLink = computed(() => ({
+	name: 'login',
+	query: buildNextQuery(route.query.next),
+}))
 const passwordHint = '密码需为 8-20 位，且包含大写字母、小写字母和数字'
 const passwordChecks = computed(() => {
 	const password = formState.password
@@ -160,14 +165,6 @@ function handleCapError() {
 	capError.value = '人机验证失败，请重试'
 }
 
-function resolveNextTarget(nextValue: unknown) {
-	const next = Array.isArray(nextValue) ? nextValue[0] : nextValue
-	if (typeof next === 'string' && next.startsWith('/') && !next.startsWith('//')) {
-		return next
-	}
-	return '/admin'
-	}
-
 function isPasswordValid(password: string) {
 	return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,20}$/.test(password)
 }
@@ -223,6 +220,7 @@ function extractRetryAfter(message: string) {
         <div class="cap-shell">
           <cap-widget
             :data-cap-api-endpoint="platformStore.capApiEndpoint"
+            :data-cap-site-key="platformStore.capSiteKey"
             data-cap-i18n-initial-state="点击开始验证"
             data-cap-i18n-verifying-label="验证中..."
             data-cap-i18n-solved-label="验证通过"
@@ -282,7 +280,7 @@ function extractRetryAfter(message: string) {
     </NForm>
 
     <div class="auth-link-row">
-      <RouterLink to="/auth/login">已有账号？去登录</RouterLink>
+      <RouterLink :to="loginLink">已有账号？去登录</RouterLink>
     </div>
   </div>
 </template>

@@ -9,6 +9,7 @@ export interface PlatformSettingsResponse {
 	smtp_port?: string
 	smtp_tls?: boolean
 	cap_api_endpoint?: string
+	cap_site_key?: string
 	cap_secret_key?: string
 	web_icon_url?: string
 }

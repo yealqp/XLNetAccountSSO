@@ -18,12 +18,14 @@ import { ApiError } from '@/api/http'
 import { decideAuthorization, previewAuthorization } from '@/api/oauth'
 import { useViewport } from '@/composables/useViewport'
 import { resolveServerUrl } from '@/config/endpoints'
+import { useSessionStore } from '@/stores/session'
 import type { AuthorizationPreview } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 const { isMobile } = useViewport()
+const sessionStore = useSessionStore()
 
 const preview = shallowRef<AuthorizationPreview | null>(null)
 const isLoading = shallowRef(true)
@@ -58,14 +60,16 @@ async function loadPreview() {
   errorMessage.value = ''
 
   try {
+    if (!sessionStore.authenticated && !(await sessionStore.ensureSession())) {
+      await redirectToLogin()
+      return
+    }
+
     preview.value = await previewAuthorization(buildAuthParams())
   }
   catch (error) {
-    if (error instanceof ApiError && error.status === 401) {
-      await router.replace({
-        name: 'login',
-        query: { next: route.fullPath },
-      })
+    if (isUnauthorizedError(error)) {
+      await redirectToLogin()
       return
     }
 
@@ -96,9 +100,26 @@ async function handleDecision(approved: boolean) {
     window.location.href = response.redirect_to
   }
   catch (error) {
+    if (isUnauthorizedError(error)) {
+      isSubmitting.value = false
+      await redirectToLogin()
+      return
+    }
+
     message.error(error instanceof ApiError ? error.message : '提交授权结果失败')
     isSubmitting.value = false
   }
+}
+
+function isUnauthorizedError(error: unknown) {
+  return error instanceof ApiError && error.status === 401
+}
+
+async function redirectToLogin() {
+  await router.replace({
+    name: 'login',
+    query: { next: route.fullPath },
+  })
 }
 
 function buildAuthParams() {

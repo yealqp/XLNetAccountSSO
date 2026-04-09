@@ -26,13 +26,17 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 		return nil, fmt.Errorf("seed platform settings: %w", err)
 	}
 	verificationService := service.NewVerificationService(store)
+	passkeyService, err := service.NewPasskeyService(store, cfg, authService)
+	if err != nil {
+		return nil, fmt.Errorf("build passkey service: %w", err)
+	}
 	oauthService, err := service.NewOAuthService(store, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("build oidc service: %w", err)
 	}
 	tokenService := service.NewTokenService(store)
 
-	authHandler := handlers.NewAuthHandler(authService, adminService, verificationService)
+	authHandler := handlers.NewAuthHandler(authService, passkeyService, adminService, verificationService)
 	adminHandler := handlers.NewAdminHandler(adminService, tokenService)
 	oauthHandler := handlers.NewOAuthHandler(oauthService, cfg)
 
@@ -67,6 +71,8 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	api.Post("/auth/register/code/send", authHandler.SendRegisterCode)
 	api.Post("/auth/register", authHandler.Register)
 	api.Post("/auth/login", authHandler.Login)
+	api.Post("/auth/passkeys/login/start", authHandler.BeginPasskeyLogin)
+	api.Post("/auth/passkeys/login/finish", authHandler.FinishPasskeyLogin)
 	api.Post("/auth/logout", authHandler.Logout)
 	api.Get("/auth/session", authHandler.Session)
 	api.Get("/settings/public", adminHandler.PublicSettings)
@@ -75,6 +81,10 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	secured.Get("/me", adminHandler.Me)
 	secured.Post("/me/password/code/send", authHandler.SendProfilePasswordCode)
 	secured.Post("/me/profile", authHandler.UpdateProfile)
+	secured.Get("/me/passkeys", authHandler.ListPasskeys)
+	secured.Post("/me/passkeys/register/start", authHandler.BeginPasskeyRegistration)
+	secured.Post("/me/passkeys/register/finish", authHandler.FinishPasskeyRegistration)
+	secured.Post("/me/passkeys/:id/delete", authHandler.DeletePasskey)
 	secured.Get("/overview", adminHandler.Overview)
 	secured.Post("/client-icons/upload", adminHandler.UploadClientIcon)
 	secured.Get("/oauth/requests/preview", oauthHandler.Preview)

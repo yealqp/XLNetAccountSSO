@@ -6,14 +6,15 @@ import (
 )
 
 type User struct {
-	ID           uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	Username     string    `gorm:"size:64;uniqueIndex;not null" json:"username"`
-	PasswordHash string    `gorm:"size:255;not null" json:"-"`
-	Email        string    `gorm:"size:160;not null" json:"email"`
-	Role         string    `gorm:"size:32;not null;default:user" json:"role"`
-	Status       string    `gorm:"size:32;not null;default:active" json:"status"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID                 uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Username           string    `gorm:"size:64;uniqueIndex;not null" json:"username"`
+	PasswordHash       string    `gorm:"size:255;not null" json:"-"`
+	Email              string    `gorm:"size:160;not null" json:"email"`
+	Role               string    `gorm:"size:32;not null;default:user" json:"role"`
+	Status             string    `gorm:"size:32;not null;default:active" json:"status"`
+	WebAuthnUserHandle *string   `gorm:"size:128;uniqueIndex" json:"-"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 type OAuthClient struct {
@@ -84,6 +85,28 @@ type UserSession struct {
 	RevokedAt        *time.Time `json:"revoked_at"`
 	CreatedAt        time.Time  `json:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at"`
+}
+
+type UserPasskeyCredential struct {
+	ID             string     `gorm:"primaryKey;size:36" json:"id"`
+	UserID         uint       `gorm:"index;not null" json:"user_id"`
+	Name           string     `gorm:"size:160;not null" json:"name"`
+	CredentialID   string     `gorm:"size:512;uniqueIndex;not null" json:"-"`
+	CredentialJSON string     `gorm:"type:longtext;not null" json:"-"`
+	LastUsedAt     *time.Time `json:"last_used_at"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+}
+
+type WebAuthnCeremony struct {
+	ID          string     `gorm:"primaryKey;size:64" json:"id"`
+	Purpose     string     `gorm:"size:32;index;not null" json:"purpose"`
+	UserID      *uint      `gorm:"index" json:"-"`
+	SessionData string     `gorm:"type:longtext;not null" json:"-"`
+	ExpiresAt   time.Time  `gorm:"index;not null" json:"expires_at"`
+	ConsumedAt  *time.Time `json:"consumed_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 type AuditLog struct {
