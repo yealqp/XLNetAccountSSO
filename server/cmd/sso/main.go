@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
+	"time"
 
 	"github.com/XianLinNet/XLNetAccount/internal/app"
 	"github.com/XianLinNet/XLNetAccount/internal/config"
@@ -10,14 +12,28 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func main() {
 	cfg := config.Load()
 
-	db, err := gorm.Open(mysql.Open(cfg.DBDSN), &gorm.Config{})
+	dbLogger := logger.New(
+		slog.NewLogLogger(slog.Default().Handler(), slog.LevelWarn),
+		logger.Config{
+			SlowThreshold:             200 * time.Millisecond,
+			LogLevel:                  logger.Warn,
+			IgnoreRecordNotFoundError: true,
+			ParameterizedQueries:      true,
+		},
+	)
+
+	db, err := gorm.Open(mysql.Open(cfg.DBDSN), &gorm.Config{
+		Logger: dbLogger,
+	})
 	if err != nil {
-		log.Fatalf("connect database: %v", err)
+		slog.Error("connect database", "error", err)
+		os.Exit(1)
 	}
 
 	if err := db.AutoMigrate(
@@ -33,17 +49,20 @@ func main() {
 		&model.WebAuthnCeremony{},
 		&model.AuditLog{},
 	); err != nil {
-		log.Fatalf("auto migrate schema: %v", err)
+		slog.Error("auto migrate schema", "error", err)
+		os.Exit(1)
 	}
 
 	server, err := app.Build(cfg, db)
 	if err != nil {
-		log.Fatalf("build app: %v", err)
+		slog.Error("build app", "error", err)
+		os.Exit(1)
 	}
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
-	log.Printf("%s listening on %s", cfg.AppName, addr)
+	slog.Info("server starting", "app", cfg.AppName, "addr", addr)
 	if err := server.Listen(addr); err != nil {
-		log.Fatalf("start server: %v", err)
+		slog.Error("start server", "error", err)
+		os.Exit(1)
 	}
 }

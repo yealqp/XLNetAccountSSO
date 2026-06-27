@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/XianLinNet/XLNetAccount/internal/http/middleware"
@@ -39,10 +40,20 @@ func (handler *AuthHandler) Login(c *fiber.Ctx) error {
 			return writeError(c, fiber.StatusConflict, "系统尚未初始化，请先创建管理员账号")
 		}
 		if errors.Is(err, service.ErrUnauthorized) {
+			slog.Warn("login failed: invalid credentials",
+				slog.String("username", input.Username),
+				slog.String("ip", c.IP()),
+			)
 			return writeError(c, fiber.StatusUnauthorized, "username or password is incorrect")
 		}
 		return writeError(c, fiber.StatusInternalServerError, "login failed")
 	}
+
+	slog.Info("login success",
+		slog.String("username", user.Username),
+		slog.Uint64("user_id", uint64(user.ID)),
+		slog.String("ip", c.IP()),
+	)
 
 	return writeSuccess(c, fiber.StatusOK, authSessionPayload(user, rawSessionToken, session), "success")
 }
@@ -67,6 +78,13 @@ func (handler *AuthHandler) Register(c *fiber.Ctx) error {
 			return writeError(c, fiber.StatusInternalServerError, "register failed")
 		}
 	}
+
+	slog.Info("register success",
+		slog.String("username", user.Username),
+		slog.Uint64("user_id", uint64(user.ID)),
+		slog.String("email", user.Email),
+		slog.String("ip", c.IP()),
+	)
 	return writeSuccess(c, fiber.StatusCreated, fiber.Map{
 		"registered": true,
 		"user":       publicUser(user),
@@ -171,6 +189,12 @@ func (handler *AuthHandler) Initialize(c *fiber.Ctx) error {
 			return writeError(c, fiber.StatusInternalServerError, "initialize admin failed")
 		}
 	}
+
+	slog.Info("system initialized: first admin created",
+		slog.String("username", user.Username),
+		slog.Uint64("user_id", uint64(user.ID)),
+		slog.String("ip", c.IP()),
+	)
 	return writeSuccess(c, fiber.StatusCreated, fiber.Map{
 		"initialized": true,
 		"user":        publicUser(user),

@@ -11,21 +11,21 @@ export default defineConfig(({ mode }: ConfigEnv) => {
 
   return {
     plugins: [vue({
-		template: {
-			compilerOptions: {
-				isCustomElement: (tag: string) => tag.startsWith('cap-'),
-			},
-		},
-	})],
+      template: {
+        compilerOptions: {
+          isCustomElement: (tag: string) => tag.startsWith('cap-'),
+        },
+      },
+    })],
     resolve: {
       alias: {
         '@': path.resolve(srcPath),
       },
     },
     build: {
-		outDir: '../server/internal/app/web-dist',
-		emptyOutDir: true,
-	},
+      outDir: 'dist',
+      emptyOutDir: true,
+    },
     server: {
       port: 5173,
       proxy: {

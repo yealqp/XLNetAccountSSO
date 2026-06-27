@@ -15,6 +15,14 @@ export const usePlatformStore = defineStore('platform', () => {
 	const ready = shallowRef(false)
 
 	const displayName = computed(() => platformName.value || fallbackPlatformName)
+	const capWidgetEndpoint = computed(() => {
+		const endpoint = capApiEndpoint.value.trim().replace(/\/+$/, '')
+		const siteKey = capSiteKey.value.trim().replace(/^\/+|\/+$/g, '')
+		if (!endpoint || !siteKey) {
+			return ''
+		}
+		return `${endpoint}/${siteKey}/`
+	})
 
 	async function ensureLoaded() {
 		if (ready.value) {
@@ -95,6 +103,7 @@ export const usePlatformStore = defineStore('platform', () => {
 		allowRegistration,
 		capApiEndpoint,
 		capSiteKey,
+		capWidgetEndpoint,
 		webIconURL,
 		displayName,
 		ready,

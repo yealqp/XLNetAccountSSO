@@ -1,35 +1,31 @@
 # OAuth2 SSO Platform
 
-An OAuth2-compatible SSO starter built with Vue 3, Naive UI, TypeScript, Vue Router, Go Fiber, and MySQL.
+An OAuth2-compatible SSO platform built with Vue 3 (Naive UI) + Go Fiber + MySQL.
 
 ## Projects
 
-- `web/`: authorization UI and admin console
-- `server/`: OAuth2-compatible authorization server, also serves the built frontend
+- `web/`: Authorization UI and admin console (独立部署)
+- `server/`: OAuth2-compatible authorization server + admin API
 
 ## Local development
 
-1. Start MySQL
-   - `docker compose up -d mysql`
-2. Copy env files
-   - `copy server\.env.example server\.env`
-   - `copy web\.env.example web\.env`
-3. Install frontend dependencies
-   - `pnpm install`
-4. Fetch Go dependencies
-   - `go mod tidy` inside `server/`
-5. Build frontend assets for embedding
-   - `pnpm --filter @sso/web build`
-6. Run projects
-   - `go run ./cmd/sso` inside `server/`
-   - Optional separate frontend dev server: `pnpm --filter @sso/web dev`
+### Backend
 
-### Passkeys / WebAuthn
+1. Start MySQL: `docker compose up -d mysql`
+2. Copy env: `copy server\.env.example server\.env`
+3. Fetch deps: `go mod tidy` inside `server/`
+4. Run: `go run ./cmd/sso` inside `server/`
 
-- Passkey login and binding use WebAuthn and therefore require a secure context (`https://...`) or `localhost`.
-- `WEBAUTHN_RP_ID` should match the login page domain only (no scheme or port). Leave it empty to derive from `WEB_BASE_URL`/`SERVER_BASE_URL`.
-- `WEBAUTHN_RP_ORIGINS` accepts a comma-separated list of allowed page origins. In local dev with a separate Vite origin, include that frontend origin here if the defaults are not enough.
-- The backend now exposes passkey endpoints under `/api/auth/passkeys/...` and `/api/me/passkeys/...`.
+### Frontend
+
+1. `pnpm install`
+2. `pnpm dev:web` (Vite dev server on `http://localhost:5173`, API proxy to backend)
+
+## Passkeys / WebAuthn
+
+- Passkey login and binding require a secure context (`https://...`) or `localhost`.
+- `WEBAUTHN_RP_ID` should match the login page domain only (no scheme or port).
+- `WEBAUTHN_RP_ORIGINS` accepts a comma-separated list of allowed frontend origins.
 
 ## First-run setup
 
@@ -39,40 +35,17 @@ An OAuth2-compatible SSO starter built with Vue 3, Naive UI, TypeScript, Vue Rou
 
 ## Docker deployment
 
-The repository now includes a full Docker stack for MySQL, the Fiber server, and the Naive UI admin/auth app.
-
 ### Services
 
-- `mysql`: MySQL 8.4 with a persisted volume
-- `server`: Go Fiber OAuth2 authorization server with embedded frontend on `http://localhost:8080`
+- `mysql`: MySQL 8.0 with a persisted volume
+- `server`: Go Fiber OAuth2 authorization server on `http://localhost:8080`
 
-### Start the full stack
+### Start
 
-1. Build and start everything
-   - `docker compose up --build -d`
-2. Follow logs if needed
-   - `docker compose logs -f server`
-3. Stop everything
-   - `docker compose down`
-4. Stop and remove MySQL data
-   - `docker compose down -v`
+- Full stack: `docker compose up --build -d`
+- Just server: `docker compose up --build -d server`
 
 ### Docker defaults
 
 - MySQL database: `sso_platform`
 - MySQL app user: `sso_app / sso_app`
-- First admin: created manually on first login/setup
-
-### Optional Docker environment file
-
-If you want to change host URLs, database credentials, or seeded account values for Docker, copy the root env template first:
-
-1. `copy .env.example .env`
-2. Edit `.env`
-3. Rebuild with `docker compose up --build -d`
-
-### Notes
-
-- `pnpm --filter @sso/web build` writes the frontend bundle into `server/internal/app/web-dist/`, and the Go server embeds that directory into the final binary.
-- The Docker server image builds the frontend first, then compiles a single backend binary with embedded assets.
-- The Docker stack is configured for local development-style URLs. OIDC and passkey/WebAuthn behavior can be adjusted through the related environment variables in the example files.

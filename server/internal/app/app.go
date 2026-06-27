@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	"gorm.io/gorm"
 )
 
@@ -43,7 +44,13 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	app := fiber.New(fiber.Config{
 		AppName: cfg.AppName,
 	})
-	app.Use(logger.New())
+	app.Use(recover.New(recover.Config{
+		EnableStackTrace: true,
+	}))
+	app.Use(logger.New(logger.Config{
+		Format: "[${ip}]:${port} ${method} ${path} ${status} ${latency} ${bytesSent}B\n",
+		Output: nil,
+	}))
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: joinOrigins(cfg.AllowedOrigins),
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
@@ -112,10 +119,6 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	admin.Post("/users/:id/update", adminHandler.UpdateUser)
 	admin.Post("/users/:id/delete", adminHandler.DeleteUser)
 	admin.Get("/manage/tokens", adminHandler.ListManagedTokens)
-
-	if err := registerEmbeddedFrontend(app); err != nil {
-		return nil, fmt.Errorf("register embedded frontend: %w", err)
-	}
 
 	return app, nil
 }

@@ -42,9 +42,6 @@ func (service *VerificationService) SendRegistrationCode(ctx context.Context, se
 	if email == "" || !strings.Contains(email, "@") {
 		return fmt.Errorf("%w: 请输入有效邮箱", ErrInvalidInput)
 	}
-	if err := service.verifyCAPTCHA(ctx, settings, captchaToken); err != nil {
-		return err
-	}
 	existing, err := service.store.FindUserByEmail(ctx, email)
 	if err != nil {
 		return err
@@ -126,8 +123,9 @@ func (service *VerificationService) verifyCode(ctx context.Context, email string
 
 func (service *VerificationService) verifyCAPTCHA(ctx context.Context, settings PlatformSettings, token string) error {
 	endpoint := strings.TrimSpace(settings.CAPAPIEndpoint)
+	siteKey := strings.Trim(strings.TrimSpace(settings.CAPSiteKey), "/")
 	secret := strings.TrimSpace(settings.CAPSecretKey)
-	if endpoint == "" || secret == "" {
+	if endpoint == "" || siteKey == "" || secret == "" {
 		return nil
 	}
 	if strings.TrimSpace(token) == "" {
@@ -140,7 +138,7 @@ func (service *VerificationService) verifyCAPTCHA(ctx context.Context, settings 
 	if err != nil {
 		return err
 	}
-	verifyURL := strings.TrimRight(endpoint, "/") + "/siteverify"
+	verifyURL := strings.TrimRight(endpoint, "/") + "/" + siteKey + "/siteverify"
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, verifyURL, strings.NewReader(string(body)))
 	if err != nil {
 		return fmt.Errorf("%w: 人机验证配置无效", ErrInvalidInput)
@@ -152,12 +150,21 @@ func (service *VerificationService) verifyCAPTCHA(ctx context.Context, settings 
 	}
 	defer response.Body.Close()
 	var payload struct {
-		Success bool `json:"success"`
+		Success bool     `json:"success"`
+		Error   string   `json:"error"`
+		Errors  []string `json:"error-codes"`
 	}
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		return fmt.Errorf("%w: 人机验证响应无效", ErrInvalidInput)
 	}
 	if !payload.Success {
+		reason := strings.TrimSpace(payload.Error)
+		if reason == "" && len(payload.Errors) > 0 {
+			reason = strings.TrimSpace(payload.Errors[0])
+		}
+		if reason != "" {
+			return fmt.Errorf("%w: 人机验证失败（%s）", ErrInvalidInput, reason)
+		}
 		return fmt.Errorf("%w: 人机验证失败", ErrInvalidInput)
 	}
 	return nil

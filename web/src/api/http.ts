@@ -1,5 +1,6 @@
 import { getAuthToken } from '@/utils/authToken'
 import { handleUnauthorizedRedirect } from '@/utils/authExpiry'
+import { getServerBaseUrl } from '@/config/endpoints'
 
 export class ApiError extends Error {
   status: number
@@ -20,6 +21,9 @@ interface ApiEnvelope<T> {
 }
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const baseUrl = getServerBaseUrl()
+  const url = path.startsWith('/') ? `${baseUrl}${path}` : `${baseUrl}/${path}`
+
   const headers = new Headers(options.headers)
   const isFormBody = options.body instanceof FormData || options.body instanceof URLSearchParams
 
@@ -32,7 +36,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     headers.set('Authorization', `Bearer ${authToken}`)
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(url, {
     ...options,
     headers,
   })

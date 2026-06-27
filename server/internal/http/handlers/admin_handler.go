@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"github.com/XianLinNet/XLNetAccount/internal/http/middleware"
@@ -72,6 +73,11 @@ func (handler *AdminHandler) UpdatePlatformSettings(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "update platform settings failed")
 	}
+	slog.Info("platform settings updated",
+		slog.String("platform_name", input.PlatformName),
+		slog.Bool("allow_registration", input.AllowRegistration),
+		slog.String("ip", c.IP()),
+	)
 	return writeSuccess(c, fiber.StatusOK, settings, "success")
 }
 
@@ -116,6 +122,12 @@ func (handler *AdminHandler) CreateClient(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "create client failed")
 	}
+	slog.Info("client created",
+		slog.String("client_name", input.Name),
+		slog.String("client_id", input.ClientID),
+		slog.String("by", authContext.User.Username),
+		slog.String("ip", c.IP()),
+	)
 	return writeSuccess(c, fiber.StatusCreated, client, "success")
 }
 
@@ -180,6 +192,11 @@ func (handler *AdminHandler) DeleteClient(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "delete client failed")
 	}
+	slog.Info("client deleted",
+		slog.String("client_id", c.Params("id")),
+		slog.String("by", authContext.User.Username),
+		slog.String("ip", c.IP()),
+	)
 	return writeSuccess(c, fiber.StatusOK, fiber.Map{}, "success")
 }
 
@@ -188,6 +205,10 @@ func (handler *AdminHandler) DeleteManagedClient(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "delete client failed")
 	}
+	slog.Info("admin deleted client",
+		slog.String("client_id", c.Params("id")),
+		slog.String("ip", c.IP()),
+	)
 	return writeSuccess(c, fiber.StatusOK, fiber.Map{}, "success")
 }
 
@@ -208,6 +229,11 @@ func (handler *AdminHandler) CreateUser(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "create user failed")
 	}
+	slog.Info("admin created user",
+		slog.String("username", input.Username),
+		slog.String("role", input.Role),
+		slog.String("ip", c.IP()),
+	)
 	return writeSuccess(c, fiber.StatusCreated, user, "success")
 }
 
@@ -229,6 +255,11 @@ func (handler *AdminHandler) DeleteUser(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "delete user failed")
 	}
+	slog.Info("admin deleted user",
+		slog.String("user_id", c.Params("id")),
+		slog.String("by", authContext.User.Username),
+		slog.String("ip", c.IP()),
+	)
 	return writeSuccess(c, fiber.StatusOK, fiber.Map{}, "success")
 }
 

@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"github.com/XianLinNet/XLNetAccount/internal/config"
@@ -65,6 +66,13 @@ func (handler *OAuthHandler) Decide(c *fiber.Ctx) error {
 	if err != nil {
 		return handleServiceError(c, err, "issue authorization code failed")
 	}
+	slog.Info("oauth authorize decision",
+		slog.String("client_id", input.ClientID),
+		slog.String("user", authContext.User.Username),
+		slog.Bool("approved", input.Approved),
+		slog.String("scope", input.Scope),
+		slog.String("ip", c.IP()),
+	)
 	return writeSuccess(c, fiber.StatusOK, fiber.Map{"redirect_to": redirectTo}, "success")
 }
 
@@ -80,8 +88,19 @@ func (handler *OAuthHandler) Token(c *fiber.Ctx) error {
 		RefreshToken: c.FormValue("refresh_token"),
 	})
 	if err != nil {
+		slog.Warn("token exchange failed",
+			slog.String("grant_type", c.FormValue("grant_type")),
+			slog.String("client_id", fallbackValue(c.FormValue("client_id"), clientID)),
+			slog.String("ip", c.IP()),
+			slog.String("error", err.Error()),
+		)
 		return handleOAuthError(c, err, "exchange token failed")
 	}
+	slog.Info("token issued",
+		slog.String("grant_type", c.FormValue("grant_type")),
+		slog.String("client_id", fallbackValue(c.FormValue("client_id"), clientID)),
+		slog.String("ip", c.IP()),
+	)
 	c.Set(fiber.HeaderCacheControl, "no-store")
 	c.Set("Pragma", "no-cache")
 	return c.JSON(response)
@@ -102,6 +121,10 @@ func (handler *OAuthHandler) Revoke(c *fiber.Ctx) error {
 	if err != nil {
 		return handleOAuthError(c, err, "revoke token failed")
 	}
+	slog.Info("token revoked",
+		slog.String("client_id", fallbackValue(c.FormValue("client_id"), clientID)),
+		slog.String("ip", c.IP()),
+	)
 	return c.SendStatus(fiber.StatusOK)
 }
 

@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"github.com/XianLinNet/XLNetAccount/internal/model"
@@ -38,6 +39,12 @@ func RequireSession(authService *service.AuthService) fiber.Handler {
 		rawSession := ResolveAuthToken(c)
 		user, session, err := authService.ResolveSession(context.Background(), rawSession)
 		if err != nil {
+			slog.Warn("auth failed: invalid session",
+				slog.String("method", c.Method()),
+				slog.String("path", c.Path()),
+				slog.String("ip", c.IP()),
+				slog.String("error", err.Error()),
+			)
 			return fiber.NewError(fiber.StatusUnauthorized, "authentication required")
 		}
 		c.Locals(authContextKey, &AuthContext{User: user, Session: session, Token: rawSession})
@@ -52,6 +59,13 @@ func RequireAdmin() fiber.Handler {
 			return fiber.NewError(fiber.StatusUnauthorized, "authentication required")
 		}
 		if authContext.User.Role != "admin" {
+			slog.Warn("auth failed: non-admin access",
+				slog.String("method", c.Method()),
+				slog.String("path", c.Path()),
+				slog.String("ip", c.IP()),
+				slog.String("username", authContext.User.Username),
+				slog.Uint64("user_id", uint64(authContext.User.ID)),
+			)
 			return fiber.NewError(fiber.StatusForbidden, "admin access required")
 		}
 		return c.Next()

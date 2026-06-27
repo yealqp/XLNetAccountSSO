@@ -44,7 +44,7 @@ const formState = reactive({
 
 void platformStore.ensureLoaded().catch(() => {})
 
-const capEnabled = computed(() => Boolean(platformStore.capApiEndpoint && platformStore.capSiteKey))
+const capEnabled = computed(() => Boolean(platformStore.capWidgetEndpoint))
 const loginLink = computed(() => ({
 	name: 'login',
 	query: buildNextQuery(route.query.next),
@@ -219,8 +219,7 @@ function extractRetryAfter(message: string) {
       <NFormItem v-if="capEnabled" label="人机验证">
         <div class="cap-shell">
           <cap-widget
-            :data-cap-api-endpoint="platformStore.capApiEndpoint"
-            :data-cap-site-key="platformStore.capSiteKey"
+            :data-cap-api-endpoint="platformStore.capWidgetEndpoint"
             data-cap-i18n-initial-state="点击开始验证"
             data-cap-i18n-verifying-label="验证中..."
             data-cap-i18n-solved-label="验证通过"

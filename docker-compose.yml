@@ -32,6 +32,10 @@ services:
     environment:
       PORT: 8080
       WEB_BASE_URL: ${SSO_WEB_BASE_URL:-http://localhost:8080}
+      SERVER_BASE_URL: ${SSO_SERVER_BASE_URL:-http://localhost:8080}
+      # 生产环境 HTTPS 必须配置以下两项，否则通行密钥（Passkey）无法使用：
+      #   SSO_WEBAUTHN_RP_ID=你的域名（如 account.idcxl.cn，不含协议）
+      #   SSO_WEBAUTHN_RP_ORIGINS=你的完整 URL（如 https://account.idcxl.cn）
       WEBAUTHN_RP_ID: ${SSO_WEBAUTHN_RP_ID:-}
       WEBAUTHN_RP_ORIGINS: ${SSO_WEBAUTHN_RP_ORIGINS:-}
       OIDC_ISSUER: ${SSO_OIDC_ISSUER:-}

@@ -77,8 +77,8 @@ export function describePasskeyError(error: unknown) {
 				return '您已取消通行密钥操作，或操作已超时。'
 			case 'NotSupportedError':
 				return '当前浏览器不支持通行密钥。'
-			case 'SecurityError':
-				return '当前页面未满足通行密钥安全要求，请确认使用 HTTPS 或 localhost。'
+		case 'SecurityError':
+			return '通行密钥安全校验失败，请确认：1) 使用 HTTPS 访问；2) 服务端已配置正确的 WEBAUTHN_RP_ID（域名）和 WEBAUTHN_RP_ORIGINS（完整 URL）。'
 			default:
 				return error.message || '通行密钥操作失败，请稍后重试。'
 		}
