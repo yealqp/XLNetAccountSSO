@@ -426,6 +426,23 @@ func (store *Store) DeleteRefreshTokensByUserID(ctx context.Context, userID uint
 	return store.db.WithContext(ctx).Delete(&model.RefreshToken{}, "user_id = ?", userID).Error
 }
 
+func (store *Store) FindAsset(ctx context.Context, key string) (*model.Asset, error) {
+	var asset model.Asset
+	err := store.db.WithContext(ctx).Where("`key` = ?", key).First(&asset).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &asset, err
+}
+
+func (store *Store) SaveAsset(ctx context.Context, asset *model.Asset) error {
+	return store.db.WithContext(ctx).Save(asset).Error
+}
+
+func (store *Store) DeleteAsset(ctx context.Context, key string) error {
+	return store.db.WithContext(ctx).Delete(&model.Asset{}, "`key` = ?", key).Error
+}
+
 func (store *Store) CreateAuditLog(ctx context.Context, logEntry *model.AuditLog) error {
 	return store.db.WithContext(ctx).Create(logEntry).Error
 }

@@ -2,7 +2,10 @@ package app
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"log/slog"
+	"strings"
 
 	"github.com/XianLinNet/XLNetAccount/internal/config"
 	"github.com/XianLinNet/XLNetAccount/internal/http/handlers"
@@ -37,7 +40,7 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	}
 	tokenService := service.NewTokenService(store)
 
-	authHandler := handlers.NewAuthHandler(authService, passkeyService, adminService, verificationService)
+	authHandler := handlers.NewAuthHandler(authService, passkeyService, adminService, verificationService, cfg)
 	adminHandler := handlers.NewAdminHandler(adminService, tokenService)
 	oauthHandler := handlers.NewOAuthHandler(oauthService, cfg)
 
@@ -61,8 +64,25 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	app.Get("/healthz", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok"})
 	})
-	app.Static("/client-icons", service.ClientIconDir(cfg))
-	app.Static("/web-icon", service.WebIconDir(cfg))
+
+	apiAssets := app.Group("/api/assets")
+	apiAssets.Get("/*", func(c *fiber.Ctx) error {
+		key := strings.TrimPrefix(c.Params("*"), "/")
+		if key == "" {
+			return c.Status(404).JSON(fiber.Map{"code": 404, "message": "not found"})
+		}
+		asset, err := store.FindAsset(c.Context(), key)
+		if err != nil || asset == nil {
+			return c.Status(404).JSON(fiber.Map{"code": 404, "message": "not found"})
+		}
+		data, err := base64.StdEncoding.DecodeString(asset.Data)
+		if err != nil {
+			slog.Error("decode asset", "key", key, "error", err)
+			return c.Status(500).JSON(fiber.Map{"code": 500, "message": "decode failed"})
+		}
+		c.Type(asset.MimeType)
+		return c.Send(data)
+	})
 
 	app.Get("/.well-known/openid-configuration", oauthHandler.OpenIDConfiguration)
 	app.Get("/.well-known/jwks.json", oauthHandler.JWKS)

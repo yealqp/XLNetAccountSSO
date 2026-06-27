@@ -49,14 +49,6 @@ export const usePlatformStore = defineStore('platform', () => {
 	async function savePlatformSettings(payload: {
 		platform_name: string
 		allow_registration: boolean
-		smtp_host: string
-		smtp_user: string
-		smtp_password: string
-		smtp_port: string
-		smtp_tls: boolean
-		cap_api_endpoint: string
-		cap_site_key: string
-		cap_secret_key: string
 		web_icon_url: string
 	}) {
 		const response = await updatePlatformSettings(payload)

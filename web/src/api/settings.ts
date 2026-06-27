@@ -3,15 +3,11 @@ import { request } from './http'
 export interface PlatformSettingsResponse {
 	platform_name: string
 	allow_registration: boolean
-	smtp_host?: string
-	smtp_user?: string
-	smtp_password?: string
-	smtp_port?: string
-	smtp_tls?: boolean
+	web_icon_url?: string
+	smtp_configured?: boolean
+	cap_configured?: boolean
 	cap_api_endpoint?: string
 	cap_site_key?: string
-	cap_secret_key?: string
-	web_icon_url?: string
 }
 
 export function fetchPublicSettings() {
@@ -29,14 +25,7 @@ export function updatePlatformSettings(payload: PlatformSettingsResponse) {
 	})
 }
 
-export function sendTestEmail(payload: {
-	smtp_host: string
-	smtp_user: string
-	smtp_password: string
-	smtp_port: string
-	smtp_tls: boolean
-	to: string
-}) {
+export function sendTestEmail(payload: { to: string }) {
 	return request<{ sent: boolean }>('/api/settings/platform/test-email', {
 		method: 'POST',
 		body: JSON.stringify(payload),

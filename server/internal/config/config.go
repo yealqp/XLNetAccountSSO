@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -14,24 +15,30 @@ type Config struct {
 	WebBaseURL        string
 	WebAuthnRPID      string
 	WebAuthnRPOrigins []string
-	AssetDir          string
 	OIDCIssuer        string
 	OIDCKeyID         string
 	OIDCPrivateKeyPEM string
 	AllowedOrigins    []string
 	DBDSN             string
+
+	SMTPHost     string
+	SMTPUser     string
+	SMTPPassword string
+	SMTPPort     string
+	SMTPTLS      bool
+
+	CAPAPIEndpoint string
+	CAPSiteKey     string
+	CAPSecretKey   string
 }
 
 func Load() Config {
-	dsn := getEnv("DB_DSN", "")
-	if dsn == "" {
-		host := getEnv("DB_HOST", "127.0.0.1")
-		port := getEnv("DB_PORT", "3306")
-		user := getEnv("DB_USER", "root")
-		password := getEnv("DB_PASSWORD", "root")
-		name := getEnv("DB_NAME", "sso_platform")
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", user, password, host, port, name)
-	}
+	host := getEnv("DB_HOST", "127.0.0.1")
+	port := getEnv("DB_PORT", "3306")
+	user := getEnv("DB_USER", "root")
+	password := getEnv("DB_PWD", "root")
+	name := getEnv("DB_NAME", "sso_platform")
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", user, password, host, port, name)
 
 	serverBaseURL := strings.TrimRight(getEnv("SERVER_BASE_URL", "http://localhost:8080"), "/")
 	webBaseURL := strings.TrimRight(getEnv("WEB_BASE_URL", serverBaseURL), "/")
@@ -52,12 +59,21 @@ func Load() Config {
 		WebBaseURL:        webBaseURL,
 		WebAuthnRPID:      webAuthnRPID,
 		WebAuthnRPOrigins: webAuthnRPOrigins,
-		AssetDir:          getEnv("ASSET_DIR", "./data"),
 		OIDCIssuer:        strings.TrimRight(getEnv("OIDC_ISSUER", serverBaseURL), "/"),
 		OIDCKeyID:         getEnv("OIDC_KEY_ID", ""),
 		OIDCPrivateKeyPEM: getEnv("OIDC_PRIVATE_KEY_PEM", ""),
 		AllowedOrigins:    allowedOrigins,
 		DBDSN:             dsn,
+
+		SMTPHost:     getEnv("SMTP_HOST", ""),
+		SMTPUser:     getEnv("SMTP_USER", ""),
+		SMTPPassword: getEnv("SMTP_PWD", ""),
+		SMTPPort:     getEnv("SMTP_PORT", "587"),
+		SMTPTLS:      parseEnvBool("SMTP_TLS", true),
+
+		CAPAPIEndpoint: getEnv("CAP_API_ENDPOINT", ""),
+		CAPSiteKey:     getEnv("CAP_SITE_KEY", ""),
+		CAPSecretKey:   getEnv("CAP_SECRET_KEY", ""),
 	}
 }
 
@@ -67,6 +83,18 @@ func getEnv(key string, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func parseEnvBool(key string, fallback bool) bool {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 func splitCSV(value string) []string {

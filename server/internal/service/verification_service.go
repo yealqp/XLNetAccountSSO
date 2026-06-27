@@ -14,6 +14,7 @@ import (
 
 	"crypto/tls"
 
+	"github.com/XianLinNet/XLNetAccount/internal/config"
 	"github.com/XianLinNet/XLNetAccount/internal/model"
 	"github.com/XianLinNet/XLNetAccount/internal/pkg/security"
 	"github.com/XianLinNet/XLNetAccount/internal/repository"
@@ -34,8 +35,8 @@ func NewVerificationService(store *repository.Store) *VerificationService {
 	return &VerificationService{store: store}
 }
 
-func (service *VerificationService) SendRegistrationCode(ctx context.Context, settings PlatformSettings, email string, captchaToken string) error {
-	if !settings.AllowRegistration {
+func (service *VerificationService) SendRegistrationCode(ctx context.Context, cfg config.Config, email string, captchaToken string) error {
+	if !service.registrationAllowed(ctx) {
 		return ErrForbidden
 	}
 	email = strings.TrimSpace(strings.ToLower(email))
@@ -49,24 +50,24 @@ func (service *VerificationService) SendRegistrationCode(ctx context.Context, se
 	if existing != nil {
 		return ErrConflict
 	}
-	return service.sendCode(ctx, email, verificationPurposeRegister, settings, captchaToken, true, "XLNetAccount 注册验证码", registrationCodeBody)
+	return service.sendCode(ctx, email, verificationPurposeRegister, cfg, captchaToken, true, "XLNetAccount 注册验证码", registrationCodeBody)
 }
 
-func (service *VerificationService) SendProfilePasswordCode(ctx context.Context, settings PlatformSettings, email string) error {
+func (service *VerificationService) SendProfilePasswordCode(ctx context.Context, cfg config.Config, email string) error {
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" || !strings.Contains(email, "@") {
 		return fmt.Errorf("%w: 当前账号未配置有效邮箱", ErrInvalidInput)
 	}
-	return service.sendCode(ctx, email, verificationPurposeProfilePassword, settings, "", false, "XLNetAccount 密码修改验证码", profilePasswordCodeBody)
+	return service.sendCode(ctx, email, verificationPurposeProfilePassword, cfg, "", false, "XLNetAccount 密码修改验证码", profilePasswordCodeBody)
 }
 
 func (service *VerificationService) VerifyProfilePasswordCode(ctx context.Context, email string, code string) error {
 	return service.verifyCode(ctx, email, verificationPurposeProfilePassword, code)
 }
 
-func (service *VerificationService) sendCode(ctx context.Context, email string, purpose string, settings PlatformSettings, captchaToken string, requireCaptcha bool, subject string, bodyBuilder func(string) string) error {
+func (service *VerificationService) sendCode(ctx context.Context, email string, purpose string, cfg config.Config, captchaToken string, requireCaptcha bool, subject string, bodyBuilder func(string) string) error {
 	if requireCaptcha {
-		if err := service.verifyCAPTCHA(ctx, settings, captchaToken); err != nil {
+		if err := verifyCAPTCHA(cfg, captchaToken); err != nil {
 			return err
 		}
 	}
@@ -98,7 +99,7 @@ func (service *VerificationService) sendCode(ctx context.Context, email string, 
 	if err := service.store.CreateEmailVerificationCode(ctx, verification); err != nil {
 		return err
 	}
-	return sendSMTPMail(settings, email, subject, bodyBuilder(code))
+	return sendSMTPMail(cfg, email, subject, bodyBuilder(code))
 }
 
 func (service *VerificationService) VerifyRegistrationCode(ctx context.Context, email string, code string) error {
@@ -121,10 +122,19 @@ func (service *VerificationService) verifyCode(ctx context.Context, email string
 	return service.store.SaveEmailVerificationCode(ctx, verification)
 }
 
-func (service *VerificationService) verifyCAPTCHA(ctx context.Context, settings PlatformSettings, token string) error {
-	endpoint := strings.TrimSpace(settings.CAPAPIEndpoint)
-	siteKey := strings.Trim(strings.TrimSpace(settings.CAPSiteKey), "/")
-	secret := strings.TrimSpace(settings.CAPSecretKey)
+func (service *VerificationService) registrationAllowed(ctx context.Context) bool {
+	setting, err := service.store.FindPlatformSetting(ctx, "allow_registration")
+	if err != nil || setting == nil {
+		return false
+	}
+	value := strings.TrimSpace(strings.ToLower(setting.Value))
+	return value == "true" || value == "1"
+}
+
+func verifyCAPTCHA(cfg config.Config, token string) error {
+	endpoint := strings.TrimSpace(cfg.CAPAPIEndpoint)
+	siteKey := strings.Trim(strings.TrimSpace(cfg.CAPSiteKey), "/")
+	secret := strings.TrimSpace(cfg.CAPSecretKey)
 	if endpoint == "" || siteKey == "" || secret == "" {
 		return nil
 	}
@@ -139,7 +149,7 @@ func (service *VerificationService) verifyCAPTCHA(ctx context.Context, settings 
 		return err
 	}
 	verifyURL := strings.TrimRight(endpoint, "/") + "/" + siteKey + "/siteverify"
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, verifyURL, strings.NewReader(string(body)))
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodPost, verifyURL, strings.NewReader(string(body)))
 	if err != nil {
 		return fmt.Errorf("%w: 人机验证配置无效", ErrInvalidInput)
 	}
@@ -170,18 +180,18 @@ func (service *VerificationService) verifyCAPTCHA(ctx context.Context, settings 
 	return nil
 }
 
-func sendSMTPMail(settings PlatformSettings, to string, subject string, body string) error {
-	host := strings.TrimSpace(settings.SMTPHost)
-	user := strings.TrimSpace(settings.SMTPUser)
-	password := strings.TrimSpace(settings.SMTPPassword)
-	port := strings.TrimSpace(settings.SMTPPort)
+func sendSMTPMail(cfg config.Config, to string, subject string, body string) error {
+	host := strings.TrimSpace(cfg.SMTPHost)
+	user := strings.TrimSpace(cfg.SMTPUser)
+	password := strings.TrimSpace(cfg.SMTPPassword)
+	port := strings.TrimSpace(cfg.SMTPPort)
 	if host == "" || user == "" || password == "" || port == "" {
-		return fmt.Errorf("%w: 请先在设置页完善邮件服务配置", ErrInvalidInput)
+		return fmt.Errorf("%w: 请先通过环境变量配置 SMTP 服务", ErrInvalidInput)
 	}
 	address := net.JoinHostPort(host, port)
 	message := buildSMTPMessage(user, to, subject, body)
 	auth := smtp.PlainAuth("", user, password, host)
-	if settings.SMTPTLS && port == "465" {
+	if cfg.SMTPTLS && port == "465" {
 		return sendImplicitTLSMail(address, host, user, auth, to, message)
 	}
 	client, err := smtp.Dial(address)
@@ -189,7 +199,7 @@ func sendSMTPMail(settings PlatformSettings, to string, subject string, body str
 		return fmt.Errorf("%w: 连接邮件服务器失败", ErrInvalidInput)
 	}
 	defer client.Close()
-	if settings.SMTPTLS {
+	if cfg.SMTPTLS {
 		if err := client.StartTLS(&tls.Config{ServerName: host}); err != nil {
 			return fmt.Errorf("%w: 启用邮件 TLS 失败", ErrInvalidInput)
 		}

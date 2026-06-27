@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/XianLinNet/XLNetAccount/internal/config"
 	"github.com/XianLinNet/XLNetAccount/internal/http/middleware"
 	"github.com/XianLinNet/XLNetAccount/internal/model"
 	"github.com/XianLinNet/XLNetAccount/internal/service"
@@ -17,10 +18,11 @@ type AuthHandler struct {
 	passkeyService      *service.PasskeyService
 	adminService        *service.AdminService
 	verificationService *service.VerificationService
+	cfg                 config.Config
 }
 
-func NewAuthHandler(authService *service.AuthService, passkeyService *service.PasskeyService, adminService *service.AdminService, verificationService *service.VerificationService) *AuthHandler {
-	return &AuthHandler{authService: authService, passkeyService: passkeyService, adminService: adminService, verificationService: verificationService}
+func NewAuthHandler(authService *service.AuthService, passkeyService *service.PasskeyService, adminService *service.AdminService, verificationService *service.VerificationService, cfg config.Config) *AuthHandler {
+	return &AuthHandler{authService: authService, passkeyService: passkeyService, adminService: adminService, verificationService: verificationService, cfg: cfg}
 }
 
 func (handler *AuthHandler) Login(c *fiber.Ctx) error {
@@ -123,11 +125,7 @@ func (handler *AuthHandler) SendProfilePasswordCode(c *fiber.Ctx) error {
 	if err != nil {
 		return writeError(c, fiber.StatusUnauthorized, "authentication required")
 	}
-	settings, err := handler.adminService.PlatformSettings(context.Background())
-	if err != nil {
-		return writeError(c, fiber.StatusInternalServerError, "load mail settings failed")
-	}
-	if err := handler.verificationService.SendProfilePasswordCode(context.Background(), settings, authContext.User.Email); err != nil {
+	if err := handler.verificationService.SendProfilePasswordCode(context.Background(), handler.cfg, authContext.User.Email); err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidInput):
 			return writeError(c, fiber.StatusBadRequest, cleanServiceError(err, service.ErrInvalidInput))
@@ -146,11 +144,7 @@ func (handler *AuthHandler) SendRegisterCode(c *fiber.Ctx) error {
 	if err := c.BodyParser(&input); err != nil {
 		return writeError(c, fiber.StatusBadRequest, "invalid register code payload")
 	}
-	settings, err := handler.adminService.PlatformSettings(context.Background())
-	if err != nil {
-		return writeError(c, fiber.StatusInternalServerError, "load registration settings failed")
-	}
-	if err := handler.verificationService.SendRegistrationCode(context.Background(), settings, input.Email, input.CaptchaToken); err != nil {
+	if err := handler.verificationService.SendRegistrationCode(context.Background(), handler.cfg, input.Email, input.CaptchaToken); err != nil {
 		switch {
 		case errors.Is(err, service.ErrConflict):
 			return writeError(c, fiber.StatusConflict, "邮箱已被注册")

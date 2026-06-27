@@ -126,6 +126,14 @@ type PlatformSetting struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type Asset struct {
+	Key      string    `gorm:"primaryKey;size:120" json:"key"`
+	Data     string    `gorm:"type:longtext;not null" json:"data"`
+	MimeType string    `gorm:"size:80;not null" json:"mime_type"`
+	UpdatedAt time.Time `json:"updated_at"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type EmailVerificationCode struct {
 	ID         string     `gorm:"primaryKey;size:36" json:"id"`
 	Email      string     `gorm:"size:160;index;not null" json:"email"`

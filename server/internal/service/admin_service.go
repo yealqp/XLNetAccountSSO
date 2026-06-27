@@ -57,38 +57,19 @@ type AdminService struct {
 const (
 	settingPlatformName      = "platform_name"
 	settingAllowRegistration = "allow_registration"
-	settingSMTPHost          = "smtp_host"
-	settingSMTPUser          = "smtp_user"
-	settingSMTPPassword      = "smtp_password"
-	settingSMTPPort          = "smtp_port"
-	settingSMTPTLS           = "smtp_tls"
-	settingCAPAPIEndpoint    = "cap_api_endpoint"
-	settingCAPSiteKey        = "cap_site_key"
-	settingCAPSecretKey      = "cap_secret_key"
 	settingWebIconURL        = "web_icon_url"
 )
 
 type PlatformSettings struct {
 	PlatformName      string `json:"platform_name"`
 	AllowRegistration bool   `json:"allow_registration"`
-	SMTPHost          string `json:"smtp_host"`
-	SMTPUser          string `json:"smtp_user"`
-	SMTPPassword      string `json:"smtp_password"`
-	SMTPPort          string `json:"smtp_port"`
-	SMTPTLS           bool   `json:"smtp_tls"`
-	CAPAPIEndpoint    string `json:"cap_api_endpoint"`
-	CAPSiteKey        string `json:"cap_site_key"`
-	CAPSecretKey      string `json:"cap_secret_key"`
 	WebIconURL        string `json:"web_icon_url"`
+	SMTPConfigured    bool   `json:"smtp_configured"`
+	CAPConfigured     bool   `json:"cap_configured"`
 }
 
 type TestEmailInput struct {
-	SMTPHost     string `json:"smtp_host"`
-	SMTPUser     string `json:"smtp_user"`
-	SMTPPassword string `json:"smtp_password"`
-	SMTPPort     string `json:"smtp_port"`
-	SMTPTLS      bool   `json:"smtp_tls"`
-	To           string `json:"to"`
+	To string `json:"to"`
 }
 
 func NewAdminService(store *repository.Store, cfg config.Config) *AdminService {
@@ -99,8 +80,6 @@ func (service *AdminService) EnsureDefaults(ctx context.Context) error {
 	defaults := map[string]string{
 		settingPlatformName:      strings.TrimSpace(service.cfg.AppName),
 		settingAllowRegistration: "false",
-		settingSMTPPort:          "587",
-		settingSMTPTLS:           "true",
 	}
 	for key, value := range defaults {
 		setting, err := service.store.FindPlatformSetting(ctx, key)
@@ -122,15 +101,15 @@ func (service *AdminService) PublicSettings(ctx context.Context) (map[string]any
 	if err != nil {
 		return nil, err
 	}
-	if resolvedIconURL, syncErr := SyncWebIconURL(ctx, service.cfg, settings.WebIconURL); syncErr == nil && resolvedIconURL != settings.WebIconURL {
-		settings.WebIconURL = resolvedIconURL
-		_ = service.store.SavePlatformSetting(ctx, &model.PlatformSetting{Key: settingWebIconURL, Value: resolvedIconURL})
+	if !isAssetIconURL(settings.WebIconURL) {
+		_ = service.store.SavePlatformSetting(ctx, &model.PlatformSetting{Key: settingWebIconURL, Value: ""})
+		settings.WebIconURL = ""
 	}
 	return map[string]any{
 		"platform_name":      settings.PlatformName,
 		"allow_registration": settings.AllowRegistration,
-		"cap_api_endpoint":   settings.CAPAPIEndpoint,
-		"cap_site_key":       settings.CAPSiteKey,
+		"cap_api_endpoint":   service.cfg.CAPAPIEndpoint,
+		"cap_site_key":       service.cfg.CAPSiteKey,
 		"web_icon_url":       settings.WebIconURL,
 	}, nil
 }
@@ -144,7 +123,13 @@ func (service *AdminService) PlatformName(ctx context.Context) (string, error) {
 }
 
 func (service *AdminService) PlatformSettings(ctx context.Context) (PlatformSettings, error) {
-	return service.loadPlatformSettings(ctx)
+	settings, err := service.loadPlatformSettings(ctx)
+	if err != nil {
+		return settings, err
+	}
+	settings.SMTPConfigured = service.cfg.SMTPHost != "" && service.cfg.SMTPUser != ""
+	settings.CAPConfigured = service.cfg.CAPAPIEndpoint != "" && service.cfg.CAPSiteKey != ""
+	return settings, nil
 }
 
 func (service *AdminService) UpdatePlatformSettings(ctx context.Context, input PlatformSettings) (PlatformSettings, error) {
@@ -155,18 +140,10 @@ func (service *AdminService) UpdatePlatformSettings(ctx context.Context, input P
 	settings := map[string]string{
 		settingPlatformName:      platformName,
 		settingAllowRegistration: boolString(input.AllowRegistration),
-		settingSMTPHost:          strings.TrimSpace(input.SMTPHost),
-		settingSMTPUser:          strings.TrimSpace(input.SMTPUser),
-		settingSMTPPassword:      strings.TrimSpace(input.SMTPPassword),
-		settingSMTPPort:          strings.TrimSpace(input.SMTPPort),
-		settingSMTPTLS:           boolString(input.SMTPTLS),
-		settingCAPAPIEndpoint:    strings.TrimSpace(input.CAPAPIEndpoint),
-		settingCAPSiteKey:        strings.TrimSpace(input.CAPSiteKey),
-		settingCAPSecretKey:      strings.TrimSpace(input.CAPSecretKey),
 	}
-	webIconURL, err := NormalizeWebIconURL(ctx, service.cfg, input.WebIconURL)
-	if err != nil {
-		return PlatformSettings{}, err
+	webIconURL := strings.TrimSpace(input.WebIconURL)
+	if webIconURL != "" && !isAssetIconURL(webIconURL) {
+		webIconURL = ""
 	}
 	settings[settingWebIconURL] = webIconURL
 	for key, value := range settings {
@@ -178,13 +155,6 @@ func (service *AdminService) UpdatePlatformSettings(ctx context.Context, input P
 }
 
 func (service *AdminService) SendTestEmail(ctx context.Context, input TestEmailInput) error {
-	settings := PlatformSettings{
-		SMTPHost:     strings.TrimSpace(input.SMTPHost),
-		SMTPUser:     strings.TrimSpace(input.SMTPUser),
-		SMTPPassword: strings.TrimSpace(input.SMTPPassword),
-		SMTPPort:     strings.TrimSpace(input.SMTPPort),
-		SMTPTLS:      input.SMTPTLS,
-	}
 	to := strings.TrimSpace(strings.ToLower(input.To))
 	if to == "" || !strings.Contains(to, "@") {
 		return fmt.Errorf("%w: 请输入有效的测试收件邮箱", ErrInvalidInput)
@@ -195,11 +165,11 @@ func (service *AdminService) SendTestEmail(ctx context.Context, input TestEmailI
 	}
 	subject := platformName + " 邮件测试"
 	body := "这是一封来自 " + platformName + " 的测试邮件。\n\n如果您收到此邮件，说明当前 SMTP 配置可正常发送。"
-	return sendSMTPMail(settings, to, subject, body)
+	return sendSMTPMail(service.cfg, to, subject, body)
 }
 
 func (service *AdminService) UploadWebIcon(ctx context.Context, fileHeader *multipart.FileHeader) (map[string]any, error) {
-	iconURL, err := StoreUploadedWebIcon(ctx, service.cfg, fileHeader)
+	iconURL, err := StoreUploadedWebIcon(ctx, service.store, fileHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +219,7 @@ func (service *AdminService) ListClients(ctx context.Context) ([]map[string]any,
 	items := make([]map[string]any, 0, len(clients))
 	for index := range clients {
 		client := clients[index]
-		resolvedIconURL, err := SyncClientIconURL(ctx, service.cfg, client.ID, client.IconURL)
+		resolvedIconURL, err := SyncClientIconURL(ctx, service.store, client.ID, client.IconURL)
 		if err == nil && resolvedIconURL != client.IconURL {
 			client.IconURL = resolvedIconURL
 			_ = service.store.SaveClient(ctx, &client)
@@ -274,7 +244,7 @@ func (service *AdminService) ListUserClients(ctx context.Context, actor *model.U
 	items := make([]map[string]any, 0, len(clients))
 	for index := range clients {
 		client := clients[index]
-		resolvedIconURL, err := SyncClientIconURL(ctx, service.cfg, client.ID, client.IconURL)
+		resolvedIconURL, err := SyncClientIconURL(ctx, service.store, client.ID, client.IconURL)
 		if err == nil && resolvedIconURL != client.IconURL {
 			client.IconURL = resolvedIconURL
 			_ = service.store.SaveClient(ctx, &client)
@@ -285,7 +255,7 @@ func (service *AdminService) ListUserClients(ctx context.Context, actor *model.U
 }
 
 func (service *AdminService) UploadClientIcon(ctx context.Context, fileHeader *multipart.FileHeader) (map[string]any, error) {
-	iconURL, err := StoreUploadedClientIcon(ctx, service.cfg, fileHeader)
+	iconURL, err := StoreUploadedClientIcon(ctx, service.store, fileHeader, "temp")
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +303,7 @@ func (service *AdminService) CreateClient(ctx context.Context, actor *model.User
 		Trusted:     input.Trusted,
 		CreatedBy:   actor.ID,
 	}
-	iconURL, err := NormalizeClientIconURL(ctx, service.cfg, client.ID, input.IconURL)
+	iconURL, err := NormalizeClientIconURL(ctx, service.store, client.ID, input.IconURL)
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +362,7 @@ func (service *AdminService) updateClient(ctx context.Context, actor *model.User
 	}
 	client.Name = name
 	client.Description = strings.TrimSpace(input.Description)
-	iconURL, err := NormalizeClientIconURL(ctx, service.cfg, client.ID, input.IconURL)
+	iconURL, err := NormalizeClientIconURL(ctx, service.store, client.ID, input.IconURL)
 	if err != nil {
 		return nil, err
 	}
@@ -443,7 +413,7 @@ func (service *AdminService) deleteClient(ctx context.Context, actor *model.User
 	if err := service.store.DeleteClient(ctx, id); err != nil {
 		return err
 	}
-	if err := DeleteClientIconFiles(service.cfg, client.ID); err != nil {
+	if err := DeleteClientIconAsset(ctx, service.store, client.ID); err != nil {
 		return err
 	}
 	return nil
@@ -606,38 +576,6 @@ func (service *AdminService) loadPlatformSettings(ctx context.Context) (Platform
 	if err != nil {
 		return PlatformSettings{}, err
 	}
-	smtpHost, err := service.settingValue(ctx, settingSMTPHost, "")
-	if err != nil {
-		return PlatformSettings{}, err
-	}
-	smtpUser, err := service.settingValue(ctx, settingSMTPUser, "")
-	if err != nil {
-		return PlatformSettings{}, err
-	}
-	smtpPassword, err := service.settingValue(ctx, settingSMTPPassword, "")
-	if err != nil {
-		return PlatformSettings{}, err
-	}
-	smtpPort, err := service.settingValue(ctx, settingSMTPPort, "587")
-	if err != nil {
-		return PlatformSettings{}, err
-	}
-	smtpTLS, err := service.settingValue(ctx, settingSMTPTLS, "true")
-	if err != nil {
-		return PlatformSettings{}, err
-	}
-	capAPIEndpoint, err := service.settingValue(ctx, settingCAPAPIEndpoint, "")
-	if err != nil {
-		return PlatformSettings{}, err
-	}
-	capSiteKey, err := service.settingValue(ctx, settingCAPSiteKey, "")
-	if err != nil {
-		return PlatformSettings{}, err
-	}
-	capSecretKey, err := service.settingValue(ctx, settingCAPSecretKey, "")
-	if err != nil {
-		return PlatformSettings{}, err
-	}
 	webIconURL, err := service.settingValue(ctx, settingWebIconURL, "")
 	if err != nil {
 		return PlatformSettings{}, err
@@ -645,15 +583,9 @@ func (service *AdminService) loadPlatformSettings(ctx context.Context) (Platform
 	return PlatformSettings{
 		PlatformName:      platformName,
 		AllowRegistration: parseBoolString(allowRegistration),
-		SMTPHost:          smtpHost,
-		SMTPUser:          smtpUser,
-		SMTPPassword:      smtpPassword,
-		SMTPPort:          smtpPort,
-		SMTPTLS:           parseBoolString(smtpTLS),
-		CAPAPIEndpoint:    capAPIEndpoint,
-		CAPSiteKey:        capSiteKey,
-		CAPSecretKey:      capSecretKey,
 		WebIconURL:        webIconURL,
+		SMTPConfigured:    service.cfg.SMTPHost != "" && service.cfg.SMTPUser != "",
+		CAPConfigured:     service.cfg.CAPAPIEndpoint != "" && service.cfg.CAPSiteKey != "",
 	}, nil
 }
 

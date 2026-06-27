@@ -48,6 +48,7 @@ func main() {
 		&model.UserPasskeyCredential{},
 		&model.WebAuthnCeremony{},
 		&model.AuditLog{},
+		&model.Asset{},
 	); err != nil {
 		slog.Error("auto migrate schema", "error", err)
 		os.Exit(1)
@@ -60,6 +61,9 @@ func main() {
 	}
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
+	if port := os.Getenv("PORT"); port != "" {
+		addr = ":" + port
+	}
 	slog.Info("server starting", "app", cfg.AppName, "addr", addr)
 	if err := server.Listen(addr); err != nil {
 		slog.Error("start server", "error", err)

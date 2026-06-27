@@ -69,7 +69,7 @@ func (service *OAuthService) PreviewAuthorization(ctx context.Context, user *mod
 	if err != nil {
 		return nil, err
 	}
-	if resolvedIconURL, syncErr := SyncClientIconURL(ctx, service.cfg, client.ID, client.IconURL); syncErr == nil && resolvedIconURL != client.IconURL {
+	if resolvedIconURL, syncErr := SyncClientIconURL(ctx, service.store, client.ID, client.IconURL); syncErr == nil && resolvedIconURL != client.IconURL {
 		client.IconURL = resolvedIconURL
 		_ = service.store.SaveClient(ctx, client)
 	}
