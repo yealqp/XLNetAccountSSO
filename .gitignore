@@ -1,6 +1,4 @@
 .DS_Store
-
-
 *.exe
 node_modules/
 dist/
@@ -15,3 +13,4 @@ examples/client-demo/.env
 server/bin/
 server/tmp/
 server/data/
+server/internal/app/web-dist
