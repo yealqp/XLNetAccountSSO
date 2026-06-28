@@ -19,6 +19,14 @@ export interface AuthTokenResponse extends SessionResponse {
   expires_in: number
 }
 
+export interface TOTPRequiredResponse {
+  requires_totp: true
+  totp_session_id: string
+  user: UserSummary
+}
+
+export type LoginResponse = AuthTokenResponse | TOTPRequiredResponse
+
 export interface PasskeyRecord {
 	id: string
 	name: string

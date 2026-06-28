@@ -23,6 +23,14 @@ type AuthService struct {
 	store *repository.Store
 }
 
+type LoginResult struct {
+	User        *model.User
+	SessionToken string
+	Session     *model.UserSession
+	RequiresTOTP bool
+	TOTPSessionID string
+}
+
 func NewAuthService(store *repository.Store) *AuthService {
 	return &AuthService{store: store}
 }
@@ -92,29 +100,58 @@ func (service *AuthService) InitializeFirstAdmin(ctx context.Context, input Init
 	return user, nil
 }
 
-func (service *AuthService) Login(ctx context.Context, username string, password string, meta SessionMeta) (*model.User, string, *model.UserSession, error) {
+func (service *AuthService) Login(ctx context.Context, username string, password string, meta SessionMeta) (*LoginResult, error) {
 	initialized, err := service.IsInitialized(ctx)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, err
 	}
 	if !initialized {
-		return nil, "", nil, ErrConflict
+		return nil, ErrConflict
 	}
 	user, err := service.findUserByIdentifier(ctx, username)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, err
 	}
 	if user == nil || user.Status != "active" {
-		return nil, "", nil, ErrUnauthorized
+		return nil, ErrUnauthorized
 	}
 	if err := security.ComparePassword(user.PasswordHash, password); err != nil {
-		return nil, "", nil, ErrUnauthorized
+		return nil, ErrUnauthorized
+	}
+	totpRecord, err := service.store.FindUserTOTPByUserID(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	if totpRecord != nil && totpRecord.Enabled {
+		now := time.Now().UTC()
+		ceremonyID := security.NewID()
+		ceremony := &model.WebAuthnCeremony{
+			ID:          ceremonyID,
+			Purpose:     "totp_login",
+			UserID:      &user.ID,
+			SessionData: fmt.Sprintf("%s|%s", meta.IPAddress, meta.UserAgent),
+			ExpiresAt:   now.Add(5 * time.Minute),
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		}
+		if err := service.store.CreateWebAuthnCeremony(ctx, ceremony); err != nil {
+			return nil, fmt.Errorf("create totp login ceremony: %w", err)
+		}
+		return &LoginResult{
+			User:          user,
+			RequiresTOTP:  true,
+			TOTPSessionID: ceremonyID,
+		}, nil
 	}
 	rawSessionToken, session, err := service.createSession(ctx, user, meta, "auth.login")
 	if err != nil {
-		return nil, "", nil, err
+		return nil, err
 	}
-	return user, rawSessionToken, session, nil
+	return &LoginResult{
+		User:         user,
+		SessionToken: rawSessionToken,
+		Session:      session,
+	}, nil
 }
 
 func (service *AuthService) Register(ctx context.Context, input RegisterInput) (*model.User, error) {

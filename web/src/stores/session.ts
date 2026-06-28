@@ -2,10 +2,15 @@ import { defineStore } from 'pinia'
 import { computed, shallowRef } from 'vue'
 
 import { fetchSession, login, logout } from '@/api/auth'
+import { verifyTOTPLogin } from '@/api/totp'
 import { finishPasskeyLogin } from '@/api/passkeys'
-import type { AuthTokenResponse, UserSummary } from '@/types/api'
+import type { AuthTokenResponse, LoginResponse, TOTPRequiredResponse, UserSummary } from '@/types/api'
 import type { AuthenticationCredentialJSON } from '@/types/webauthn'
 import { clearAuthToken, setAuthToken } from '@/utils/authToken'
+
+export type SignInResult =
+  | { type: 'full' }
+  | { type: 'totp'; sessionId: string; user: UserSummary }
 
 export const useSessionStore = defineStore('session', () => {
   const user = shallowRef<UserSummary | null>(null)
@@ -29,22 +34,35 @@ export const useSessionStore = defineStore('session', () => {
     return user.value
   }
 
-	async function signIn(payload: { username: string; password: string }) {
-		const session = await login(payload)
-		return applyAuthSession(session)
-	}
+  async function signIn(payload: { username: string; password: string }): Promise<SignInResult> {
+    const response = await login(payload)
+    if (isTOTPRequired(response)) {
+      return { type: 'totp', sessionId: response.totp_session_id, user: response.user }
+    }
+    applyAuthSession(response)
+    return { type: 'full' }
+  }
 
-	async function signInWithPasskey(payload: { session_id: string; credential: AuthenticationCredentialJSON }) {
-		const session = await finishPasskeyLogin(payload)
-		return applyAuthSession(session)
-	}
+  async function signInWithTOTP(payload: { totp_session_id: string; code: string }) {
+    const session = await verifyTOTPLogin(payload)
+    return applyAuthSession(session)
+  }
 
-	function applyAuthSession(session: AuthTokenResponse) {
-		setAuthToken(session.access_token)
-		user.value = session.user ?? null
-		ready.value = true
-		return user.value
-	}
+  async function signInWithPasskey(payload: { session_id: string; credential: AuthenticationCredentialJSON }) {
+    const session = await finishPasskeyLogin(payload)
+    return applyAuthSession(session)
+  }
+
+  function applyAuthSession(session: AuthTokenResponse) {
+    setAuthToken(session.access_token)
+    user.value = session.user ?? null
+    ready.value = true
+    return user.value
+  }
+
+  function isTOTPRequired(response: LoginResponse): response is TOTPRequiredResponse {
+    return (response as TOTPRequiredResponse).requires_totp === true
+  }
 
   async function signOut() {
     try {
@@ -62,10 +80,11 @@ export const useSessionStore = defineStore('session', () => {
     ready,
     authenticated,
     syncSession,
-		ensureSession,
-		signIn,
-		signInWithPasskey,
-		signOut,
+    ensureSession,
+    signIn,
+    signInWithTOTP,
+    signInWithPasskey,
+    signOut,
     setUser: (nextUser: UserSummary | null) => {
       user.value = nextUser
       ready.value = true

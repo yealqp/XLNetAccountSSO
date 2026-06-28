@@ -18,11 +18,12 @@ type AuthHandler struct {
 	passkeyService      *service.PasskeyService
 	adminService        *service.AdminService
 	verificationService *service.VerificationService
+	totpService         *service.TOTPService
 	cfg                 config.Config
 }
 
-func NewAuthHandler(authService *service.AuthService, passkeyService *service.PasskeyService, adminService *service.AdminService, verificationService *service.VerificationService, cfg config.Config) *AuthHandler {
-	return &AuthHandler{authService: authService, passkeyService: passkeyService, adminService: adminService, verificationService: verificationService, cfg: cfg}
+func NewAuthHandler(authService *service.AuthService, passkeyService *service.PasskeyService, adminService *service.AdminService, verificationService *service.VerificationService, totpService *service.TOTPService, cfg config.Config) *AuthHandler {
+	return &AuthHandler{authService: authService, passkeyService: passkeyService, adminService: adminService, verificationService: verificationService, totpService: totpService, cfg: cfg}
 }
 
 func (handler *AuthHandler) Login(c *fiber.Ctx) error {
@@ -33,7 +34,7 @@ func (handler *AuthHandler) Login(c *fiber.Ctx) error {
 	if err := c.BodyParser(&input); err != nil {
 		return writeError(c, fiber.StatusBadRequest, "invalid login payload")
 	}
-	user, rawSessionToken, session, err := handler.authService.Login(context.Background(), input.Username, input.Password, service.SessionMeta{
+	result, err := handler.authService.Login(context.Background(), input.Username, input.Password, service.SessionMeta{
 		IPAddress: c.IP(),
 		UserAgent: c.Get(fiber.HeaderUserAgent),
 	})
@@ -51,13 +52,21 @@ func (handler *AuthHandler) Login(c *fiber.Ctx) error {
 		return writeError(c, fiber.StatusInternalServerError, "login failed")
 	}
 
+	if result.RequiresTOTP {
+		return writeSuccess(c, fiber.StatusOK, fiber.Map{
+			"requires_totp":  true,
+			"totp_session_id": result.TOTPSessionID,
+			"user":           publicUser(result.User),
+		}, "success")
+	}
+
 	slog.Info("login success",
-		slog.String("username", user.Username),
-		slog.Uint64("user_id", uint64(user.ID)),
+		slog.String("username", result.User.Username),
+		slog.Uint64("user_id", uint64(result.User.ID)),
 		slog.String("ip", c.IP()),
 	)
 
-	return writeSuccess(c, fiber.StatusOK, authSessionPayload(user, rawSessionToken, session), "success")
+	return writeSuccess(c, fiber.StatusOK, authSessionPayload(result.User, result.SessionToken, result.Session), "success")
 }
 
 func (handler *AuthHandler) Register(c *fiber.Ctx) error {
@@ -219,4 +228,86 @@ func authSessionPayload(user *model.User, rawSessionToken string, session *model
 		"expires_in":    int(time.Until(session.ExpiresAt).Seconds()),
 		"user":          publicUser(user),
 	}
+}
+
+func (handler *AuthHandler) TOTPStatus(c *fiber.Ctx) error {
+	authContext, err := middleware.CurrentAuthContext(c)
+	if err != nil {
+		return writeError(c, fiber.StatusUnauthorized, "authentication required")
+	}
+	status, err := handler.totpService.Status(authContext.User)
+	if err != nil {
+		return writeError(c, fiber.StatusInternalServerError, "load totp status failed")
+	}
+	return writeSuccess(c, fiber.StatusOK, status, "success")
+}
+
+func (handler *AuthHandler) BeginTOTPSetup(c *fiber.Ctx) error {
+	authContext, err := middleware.CurrentAuthContext(c)
+	if err != nil {
+		return writeError(c, fiber.StatusUnauthorized, "authentication required")
+	}
+	result, err := handler.totpService.BeginSetup(authContext.User)
+	if err != nil {
+		return writeError(c, fiber.StatusInternalServerError, "begin totp setup failed")
+	}
+	return writeSuccess(c, fiber.StatusOK, result, "success")
+}
+
+func (handler *AuthHandler) VerifyTOTPSetup(c *fiber.Ctx) error {
+	authContext, err := middleware.CurrentAuthContext(c)
+	if err != nil {
+		return writeError(c, fiber.StatusUnauthorized, "authentication required")
+	}
+	var input struct {
+		SessionID string `json:"setup_session_id"`
+		Code      string `json:"code"`
+	}
+	if err := c.BodyParser(&input); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid payload")
+	}
+	if err := handler.totpService.VerifySetup(authContext.User, input.SessionID, input.Code); err != nil {
+		if errors.Is(err, service.ErrInvalidGrant) {
+			return writeError(c, fiber.StatusBadRequest, cleanServiceError(err, service.ErrInvalidGrant))
+		}
+		return writeError(c, fiber.StatusInternalServerError, "verify totp setup failed")
+	}
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{"enabled": true}, "success")
+}
+
+func (handler *AuthHandler) DisableTOTP(c *fiber.Ctx) error {
+	authContext, err := middleware.CurrentAuthContext(c)
+	if err != nil {
+		return writeError(c, fiber.StatusUnauthorized, "authentication required")
+	}
+	if err := handler.totpService.Disable(authContext.User); err != nil {
+		return writeError(c, fiber.StatusInternalServerError, "disable totp failed")
+	}
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{"enabled": false}, "success")
+}
+
+func (handler *AuthHandler) VerifyTOTPLogin(c *fiber.Ctx) error {
+	var input struct {
+		TOTPSessionID string `json:"totp_session_id"`
+		Code          string `json:"code"`
+	}
+	if err := c.BodyParser(&input); err != nil {
+		return writeError(c, fiber.StatusBadRequest, "invalid payload")
+	}
+	user, rawSessionToken, session, err := handler.totpService.VerifyTOTPLogin(input.TOTPSessionID, input.Code, service.SessionMeta{
+		IPAddress: c.IP(),
+		UserAgent: c.Get(fiber.HeaderUserAgent),
+	})
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidGrant) {
+			return writeError(c, fiber.StatusBadRequest, cleanServiceError(err, service.ErrInvalidGrant))
+		}
+		return writeError(c, fiber.StatusInternalServerError, "verify totp login failed")
+	}
+	slog.Info("totp login success",
+		slog.String("username", user.Username),
+		slog.Uint64("user_id", uint64(user.ID)),
+		slog.String("ip", c.IP()),
+	)
+	return writeSuccess(c, fiber.StatusOK, authSessionPayload(user, rawSessionToken, session), "success")
 }

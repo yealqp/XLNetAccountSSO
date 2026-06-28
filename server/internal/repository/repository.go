@@ -443,6 +443,27 @@ func (store *Store) DeleteAsset(ctx context.Context, key string) error {
 	return store.db.WithContext(ctx).Delete(&model.Asset{}, "`key` = ?", key).Error
 }
 
+func (store *Store) FindUserTOTPByUserID(ctx context.Context, userID uint) (*model.UserTOTP, error) {
+	var totp model.UserTOTP
+	err := store.db.WithContext(ctx).Where("user_id = ?", userID).First(&totp).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &totp, err
+}
+
+func (store *Store) CreateUserTOTP(ctx context.Context, totp *model.UserTOTP) error {
+	return store.db.WithContext(ctx).Create(totp).Error
+}
+
+func (store *Store) SaveUserTOTP(ctx context.Context, totp *model.UserTOTP) error {
+	return store.db.WithContext(ctx).Save(totp).Error
+}
+
+func (store *Store) DeleteUserTOTPByUserID(ctx context.Context, userID uint) error {
+	return store.db.WithContext(ctx).Delete(&model.UserTOTP{}, "user_id = ?", userID).Error
+}
+
 func (store *Store) CreateAuditLog(ctx context.Context, logEntry *model.AuditLog) error {
 	return store.db.WithContext(ctx).Create(logEntry).Error
 }

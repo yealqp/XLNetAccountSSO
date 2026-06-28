@@ -34,13 +34,14 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("build passkey service: %w", err)
 	}
+	totpService := service.NewTOTPService(store, cfg, authService)
 	oauthService, err := service.NewOAuthService(store, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("build oidc service: %w", err)
 	}
 	tokenService := service.NewTokenService(store)
 
-	authHandler := handlers.NewAuthHandler(authService, passkeyService, adminService, verificationService, cfg)
+	authHandler := handlers.NewAuthHandler(authService, passkeyService, adminService, verificationService, totpService, cfg)
 	adminHandler := handlers.NewAdminHandler(adminService, tokenService)
 	oauthHandler := handlers.NewOAuthHandler(oauthService, cfg)
 
@@ -101,6 +102,7 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	api.Post("/auth/passkeys/login/start", authHandler.BeginPasskeyLogin)
 	api.Post("/auth/passkeys/login/finish", authHandler.FinishPasskeyLogin)
 	api.Post("/auth/logout", authHandler.Logout)
+	api.Post("/auth/totp/login/verify", authHandler.VerifyTOTPLogin)
 	api.Get("/auth/session", authHandler.Session)
 	api.Get("/settings/public", adminHandler.PublicSettings)
 
@@ -112,6 +114,10 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	secured.Post("/me/passkeys/register/start", authHandler.BeginPasskeyRegistration)
 	secured.Post("/me/passkeys/register/finish", authHandler.FinishPasskeyRegistration)
 	secured.Post("/me/passkeys/:id/delete", authHandler.DeletePasskey)
+	secured.Get("/me/totp/status", authHandler.TOTPStatus)
+	secured.Post("/me/totp/setup/start", authHandler.BeginTOTPSetup)
+	secured.Post("/me/totp/setup/verify", authHandler.VerifyTOTPSetup)
+	secured.Post("/me/totp/disable", authHandler.DisableTOTP)
 	secured.Get("/overview", adminHandler.Overview)
 	secured.Post("/client-icons/upload", adminHandler.UploadClientIcon)
 	secured.Get("/oauth/requests/preview", oauthHandler.Preview)

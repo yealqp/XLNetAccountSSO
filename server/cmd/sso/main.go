@@ -47,6 +47,7 @@ func main() {
 		&model.UserSession{},
 		&model.UserPasskeyCredential{},
 		&model.WebAuthnCeremony{},
+		&model.UserTOTP{},
 		&model.AuditLog{},
 		&model.Asset{},
 	); err != nil {

@@ -1,4 +1,4 @@
-import type { AuthTokenResponse, SessionResponse } from '@/types/api'
+import type { LoginResponse, SessionResponse } from '@/types/api'
 
 import { request } from './http'
 
@@ -7,7 +7,7 @@ export function fetchSession() {
 }
 
 export function login(payload: { username: string; password: string }) {
-	return request<AuthTokenResponse>('/api/auth/login', {
+	return request<LoginResponse>('/api/auth/login', {
 		method: 'POST',
 		body: JSON.stringify(payload),
 	})

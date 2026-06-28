@@ -558,7 +558,10 @@ func (service *AdminService) DeleteUser(ctx context.Context, actor *model.User, 
 	if err := service.store.DeleteUserPasskeyCredentialsByUserID(ctx, user.ID); err != nil {
 		return err
 	}
-	if err := service.store.DeleteWebAuthnCeremoniesByUserID(ctx, user.ID); err != nil {
+	if err := service.store.DeleteUserTOTPByUserID(ctx, user.ID); err != nil {
+			return err
+		}
+		if err := service.store.DeleteWebAuthnCeremoniesByUserID(ctx, user.ID); err != nil {
 		return err
 	}
 	if err := service.store.DeleteSessionsByUserID(ctx, user.ID); err != nil {

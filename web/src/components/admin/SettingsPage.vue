@@ -5,6 +5,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, shallowRef } from 'vue'
 import { sendProfilePasswordCode, updateProfile } from '@/api/auth'
 import { ApiError } from '@/api/http'
 import { deletePasskey, fetchPasskeys, finishPasskeyRegistration, startPasskeyRegistration } from '@/api/passkeys'
+import { disableTOTP, fetchTOTPStatus, startTOTPSetup, verifyTOTPSetup } from '@/api/totp'
 import { useSessionStore } from '@/stores/session'
 import type { PasskeyRecord } from '@/types/api'
 import { createPasskeyCredential, describePasskeyError, getPasskeySupportMessage } from '@/utils/webauthn'
@@ -36,6 +37,17 @@ const resendRemaining = shallowRef(0)
 let resendTimer: ReturnType<typeof setInterval> | null = null
 const passkeySupportMessage = getPasskeySupportMessage()
 
+const totpEnabled = shallowRef(false)
+const isLoadingTOTPStatus = shallowRef(false)
+const isEnablingTOTP = shallowRef(false)
+const isDisablingTOTP = shallowRef(false)
+const showTotpSetup = shallowRef(false)
+const totpSetupData = shallowRef<{ secret: string; uri: string; qr_data_uri: string; setup_session_id: string } | null>(null)
+const totpSetupCode = shallowRef('')
+const totpSetupError = shallowRef('')
+const showTotpDisableConfirm = shallowRef(false)
+const totpError = shallowRef('')
+
 const profilePasswordChecks = computed(() => {
   const password = profileState.password
   if (!password) {
@@ -55,6 +67,7 @@ onMounted(() => {
   profileState.username = sessionStore.user?.username ?? ''
   profileState.email = sessionStore.user?.email ?? ''
   void loadPasskeys()
+  void loadTOTPStatus()
 })
 
 onBeforeUnmount(() => {
@@ -181,6 +194,89 @@ function formatPasskeyTime(value: string | null) {
 		return value
 	}
 	return date.toLocaleString('zh-CN', { hour12: false })
+}
+
+async function loadTOTPStatus() {
+  isLoadingTOTPStatus.value = true
+  totpError.value = ''
+  try {
+    const status = await fetchTOTPStatus()
+    totpEnabled.value = status.enabled
+  }
+  catch (error) {
+    totpError.value = error instanceof ApiError ? error.message : '加载两步验证状态失败'
+  }
+  finally {
+    isLoadingTOTPStatus.value = false
+  }
+}
+
+async function handleEnableTOTP() {
+  isEnablingTOTP.value = true
+  totpSetupError.value = ''
+  try {
+    const data = await startTOTPSetup()
+    totpSetupData.value = data
+    showTotpSetup.value = true
+  }
+  catch (error) {
+    totpSetupError.value = error instanceof ApiError ? error.message : '开启两步验证失败'
+    message.error(totpSetupError.value)
+  }
+  finally {
+    isEnablingTOTP.value = false
+  }
+}
+
+async function handleVerifyTOTPSetup() {
+  if (!totpSetupData.value) {
+    return
+  }
+  isEnablingTOTP.value = true
+  totpSetupError.value = ''
+  try {
+    await verifyTOTPSetup({
+      setup_session_id: totpSetupData.value.setup_session_id,
+      code: totpSetupCode.value,
+    })
+    totpEnabled.value = true
+    showTotpSetup.value = false
+    totpSetupData.value = null
+    totpSetupCode.value = ''
+    message.success('两步验证已启用')
+  }
+  catch (error) {
+    totpSetupError.value = error instanceof ApiError ? error.message : '验证失败'
+    message.error(totpSetupError.value)
+  }
+  finally {
+    isEnablingTOTP.value = false
+  }
+}
+
+function handleCancelTOTPSetup() {
+  showTotpSetup.value = false
+  totpSetupData.value = null
+  totpSetupCode.value = ''
+  totpSetupError.value = ''
+}
+
+async function handleDisableTOTP() {
+  isDisablingTOTP.value = true
+  totpError.value = ''
+  try {
+    await disableTOTP()
+    totpEnabled.value = false
+    showTotpDisableConfirm.value = false
+    message.success('两步验证已关闭')
+  }
+  catch (error) {
+    totpError.value = error instanceof ApiError ? error.message : '关闭两步验证失败'
+    message.error(totpError.value)
+  }
+  finally {
+    isDisablingTOTP.value = false
+  }
 }
 
 function startResendCountdown(seconds: number) {
@@ -315,6 +411,79 @@ function extractRetryAfter(message: string) {
 				</NSpin>
 			</NSpace>
 		</NCard>
+    <NCard title="两步验证（2FA）">
+      <NSpace vertical :size="16">
+        <NText depth="3">启用两步验证后，登录时需额外输入验证器 App 生成的 6 位动态码，增强账号安全性。</NText>
+
+        <NAlert v-if="totpError" type="error" :show-icon="false">
+          {{ totpError }}
+        </NAlert>
+
+        <NSpin :show="isLoadingTOTPStatus">
+          <template v-if="!totpEnabled && !showTotpSetup">
+            <NButton type="primary" data-testid="totp-enable-button" :loading="isEnablingTOTP" @click="handleEnableTOTP">
+              启用两步验证
+            </NButton>
+          </template>
+
+          <template v-if="showTotpSetup && totpSetupData">
+            <NAlert type="info" :show-icon="false">
+              <template #header>
+                使用验证器 App 扫描以下二维码
+              </template>
+              <div style="text-align: center; margin: 16px 0;">
+                <img :src="totpSetupData.qr_data_uri" alt="TOTP QR Code" style="width: 200px; height: 200px; border-radius: 8px;" />
+              </div>
+              <div style="text-align: center; margin-bottom: 12px;">
+                <NText depth="3">无法扫描？手动输入密钥：</NText>
+                <NText code>{{ totpSetupData.secret }}</NText>
+              </div>
+            </NAlert>
+
+            <div class="totp-verify-row">
+              <NInput
+                v-model:value="totpSetupCode"
+                placeholder="输入 6 位动态码"
+                maxlength="6"
+                style="flex: 1;"
+              />
+              <NButton type="primary" :loading="isEnablingTOTP" @click="handleVerifyTOTPSetup">
+                验证
+              </NButton>
+              <NButton secondary @click="handleCancelTOTPSetup">
+                取消
+              </NButton>
+            </div>
+
+            <NAlert v-if="totpSetupError" type="error" :show-icon="false">
+              {{ totpSetupError }}
+            </NAlert>
+          </template>
+
+          <template v-if="totpEnabled && !showTotpSetup">
+            <div class="totp-status-row">
+              <NText type="success">两步验证已启用</NText>
+              <template v-if="!showTotpDisableConfirm">
+                <NButton secondary type="error" data-testid="totp-disable-button" @click="showTotpDisableConfirm = true">
+                  关闭两步验证
+                </NButton>
+              </template>
+              <template v-else>
+                <NSpace>
+                  <NText depth="3">确认关闭？</NText>
+                  <NButton type="error" size="small" :loading="isDisablingTOTP" @click="handleDisableTOTP">
+                    确认关闭
+                  </NButton>
+                  <NButton secondary size="small" @click="showTotpDisableConfirm = false">
+                    取消
+                  </NButton>
+                </NSpace>
+              </template>
+            </div>
+          </template>
+        </NSpin>
+      </NSpace>
+    </NCard>
   </section>
 </template>
 
@@ -368,6 +537,20 @@ function extractRetryAfter(message: string) {
 
 .password-rule.passed {
   color: #7ed6a7;
+}
+
+.totp-verify-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.totp-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 720px) {
