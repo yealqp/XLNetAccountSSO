@@ -4,12 +4,5 @@
     "go": {
       "maxDuration": 30
     }
-  },
-  "redirects": [
-    {
-      "source": "/(.*)",
-      "destination": "/",
-      "statusCode": 200
-    }
-  ]
+  }
 }
