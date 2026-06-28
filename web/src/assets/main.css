@@ -3,18 +3,18 @@
 
   /* Resend Design Tokens */
   --color-canvas: #000000;
-  --color-surface-card: #0a0a0c;
-  --color-surface-elevated: #101012;
-  --color-surface-deep: #06060a;
+  --color-surface-card: #0d0d11;
+  --color-surface-elevated: #141418;
+  --color-surface-deep: #08080b;
   --color-ink: #fcfdff;
-  --color-body: rgba(252, 253, 255, 0.86);
-  --color-charcoal: rgba(252, 253, 255, 0.7);
-  --color-mute: #a1a4a5;
-  --color-ash: #888e90;
-  --color-stone: #464a4d;
-  --color-hairline: rgba(255, 255, 255, 0.06);
-  --color-hairline-strong: rgba(255, 255, 255, 0.14);
-  --color-divider-soft: rgba(255, 255, 255, 0.04);
+  --color-body: rgba(252, 253, 255, 0.92);
+  --color-charcoal: rgba(252, 253, 255, 0.78);
+  --color-mute: #b0b2b5;
+  --color-ash: #9a9ea0;
+  --color-stone: #555a5d;
+  --color-hairline: rgba(255, 255, 255, 0.1);
+  --color-hairline-strong: rgba(255, 255, 255, 0.2);
+  --color-divider-soft: rgba(255, 255, 255, 0.06);
   --color-accent-blue: #3b9eff;
   --color-accent-green: #11ff99;
   --color-accent-red: #ff2047;
