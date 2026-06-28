@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { NButton, NIcon, NSpace, NTag, NText } from 'naive-ui'
+import { NButton, NIcon } from 'naive-ui'
 import { useHead } from '@unhead/vue'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
-import { ChevronsDown, Fingerprint, KeyRound, LogIn, QrCode, ShieldCheck, Users } from 'lucide-vue-next'
+import { ChevronsDown, Code, Fingerprint, KeyRound, LogIn, QrCode, Shield, ShieldCheck, Users } from 'lucide-vue-next'
 
 import { usePlatformStore } from '@/stores/platform'
 
@@ -29,6 +29,32 @@ const features = [
 
 const platformName = computed(() => platformStore.displayName)
 const shellRef = useTemplateRef<HTMLElement>('shell')
+
+const stats = [
+  { icon: Code, value: '4', label: '授权流程' },
+  { icon: Shield, value: '2', label: '身份协议' },
+  { icon: Fingerprint, value: '2', label: '安全方式' },
+  { icon: KeyRound, value: '3', label: '令牌类型' },
+]
+
+const runtimeText = ref('')
+const FOUNDING_DATE = '2024-06-01T00:00:00+08:00'
+const ICP_BEIAN = '沪ICP备2025144886号-3'
+
+function calculateRuntime() {
+  const start = new Date(FOUNDING_DATE)
+  const now = new Date()
+  const diff = now.getTime() - start.getTime()
+  const days = Math.floor(diff / 86400000)
+  const hours = Math.floor((diff % 86400000) / 3600000)
+  const minutes = Math.floor((diff % 3600000) / 60000)
+  runtimeText.value = `${days} 天 ${hours} 小时 ${minutes} 分钟`
+}
+
+onMounted(() => {
+  calculateRuntime()
+  setInterval(calculateRuntime, 60000)
+})
 
 // --- parallax & snap scroll ---
 const parallaxOffset = ref(0)
@@ -259,6 +285,27 @@ onUnmounted(() => {
         </div>
       </section>
 
+      <!-- Stats -->
+      <section class="stats-section">
+        <div class="section-inner">
+          <div class="section-header">
+            <h2 class="section-title">数据一览</h2>
+            <p class="section-subtitle">标准协议支持与安全能力。</p>
+          </div>
+          <div class="stats-grid">
+            <div v-for="stat in stats" :key="stat.label" class="stat-card-wrapper">
+              <div class="glass-card stat-card">
+                <div class="stat-icon-box">
+                  <NIcon size="28"><component :is="stat.icon" /></NIcon>
+                </div>
+                <div class="stat-value">{{ stat.value }}</div>
+                <div class="stat-label">{{ stat.label }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- CTA -->
       <section class="cta-section">
         <div class="cta-banner">
@@ -279,7 +326,20 @@ onUnmounted(() => {
     </main>
 
     <footer class="landing-footer">
-      <NText depth="3">{{ platformName }} &mdash; 统一账号与授权中心</NText>
+      <div class="footer-inner">
+        <div class="footer-left">
+          <p class="footer-copyright">Copyright &copy; 2026 XLNet</p>
+          <p class="footer-meta">{{ platformName }} &mdash; 已稳定运行 {{ runtimeText }}</p>
+        </div>
+        <div class="footer-right">
+          <a
+            href="https://beian.miit.gov.cn"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="footer-icp"
+          >{{ ICP_BEIAN }}</a>
+        </div>
+      </div>
     </footer>
   </div>
 </template>
@@ -291,6 +351,7 @@ onUnmounted(() => {
 .landing-shell {
   display: flex;
   flex-direction: column;
+  width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
   overflow-y: auto;
@@ -508,6 +569,10 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
+.show-mobile {
+  display: none;
+}
+
 .hero-buttons {
   display: flex;
   align-items: center;
@@ -629,6 +694,50 @@ onUnmounted(() => {
 }
 
 /* ========================================
+   Stats
+   ======================================== */
+.stats-section {
+  padding: 80px 24px;
+  background: #030712;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.stat-card {
+  text-align: center;
+  padding: 32px 24px;
+}
+
+.stat-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  margin: 0 auto 16px;
+  background: rgba(45, 212, 191, 0.1);
+  color: #2dd4bf;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: #fcfdff;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ========================================
    CTA
    ======================================== */
 .cta-section {
@@ -714,14 +823,53 @@ onUnmounted(() => {
    Footer
    ======================================== */
 .landing-footer {
+  background: rgba(17, 24, 39, 0.5);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.footer-inner {
   display: flex;
   align-items: center;
-  justify-content: center;
-  height: 56px;
-  padding: 0 24px;
-  text-align: center;
+  justify-content: space-between;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.footer-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.footer-copyright {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.footer-meta {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.footer-icp {
   font-size: 13px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.45);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-icp:hover {
+  color: #2dd4bf;
 }
 
 /* ========================================
@@ -765,6 +913,14 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
   }
 
+  .stats-section {
+    padding: 48px 16px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .cta-banner {
     padding: 56px 16px;
   }
@@ -781,12 +937,22 @@ onUnmounted(() => {
     width: 100%;
   }
 
+  .footer-inner {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+
   .header-inner {
     padding: 0 12px;
   }
 
   .hide-mobile {
     display: none;
+  }
+
+  .show-mobile {
+    display: inline;
   }
 }
 </style>
