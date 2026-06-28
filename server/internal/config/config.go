@@ -54,7 +54,7 @@ func Load() Config {
 
 	return Config{
 		AppName:           getEnv("APP_NAME", "XLNetAccount"),
-		Port:              getEnv("PORT", "8080"),
+		Port:              getEnv("PORT", "9000"),
 		ServerBaseURL:     serverBaseURL,
 		WebBaseURL:        webBaseURL,
 		WebAuthnRPID:      webAuthnRPID,

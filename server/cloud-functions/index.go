@@ -16,7 +16,10 @@ import (
 )
 
 func main() {
+	slog.Info("starting server", "port_env", os.Getenv("PORT"))
+
 	cfg := config.Load()
+	slog.Info("config loaded", "port", cfg.Port, "db_host", os.Getenv("DB_HOST"))
 
 	dbLogger := logger.New(
 		slog.NewLogLogger(slog.Default().Handler(), slog.LevelWarn),
@@ -28,6 +31,7 @@ func main() {
 		},
 	)
 
+	slog.Info("connecting to database")
 	db, err := gorm.Open(mysql.Open(cfg.DBDSN), &gorm.Config{
 		Logger: dbLogger,
 	})
@@ -35,7 +39,9 @@ func main() {
 		slog.Error("connect database", "error", err)
 		os.Exit(1)
 	}
+	slog.Info("database connected")
 
+	slog.Info("running auto migrate")
 	if err := db.AutoMigrate(
 		&model.User{},
 		&model.OAuthClient{},
@@ -53,6 +59,7 @@ func main() {
 		slog.Error("auto migrate schema", "error", err)
 		os.Exit(1)
 	}
+	slog.Info("auto migrate complete")
 
 	server, err := app.Build(cfg, db)
 	if err != nil {
