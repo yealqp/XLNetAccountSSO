@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NButton, NCard, NGrid, NGridItem, NIcon, NSpace, NTag, NText } from 'naive-ui'
+import { NButton, NIcon, NSpace, NTag, NText } from 'naive-ui'
 import { useHead } from '@unhead/vue'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
@@ -165,7 +165,7 @@ onUnmounted(() => {
 <template>
   <div ref="shell" class="landing-shell">
     <header class="landing-header">
-      <div class="landing-header-inner page-container">
+      <div class="header-inner">
         <div class="landing-brand">
           <div class="brand-icon">{{ platformName.charAt(0) }}</div>
           <span class="brand-name">{{ platformName }}</span>
@@ -178,9 +178,10 @@ onUnmounted(() => {
     </header>
 
     <main class="landing-main">
-      <!-- Hero Section with snap + parallax -->
+      <!-- Hero -->
       <section class="hero-section">
-        <div class="hero-bg-glow">
+        <div class="hero-bg">
+          <div class="hero-gradient"></div>
           <div
             class="glow-sphere sphere-1"
             :style="{ transform: `translateY(${parallaxOffset * 0.3}px)` }"
@@ -195,22 +196,40 @@ onUnmounted(() => {
           ></div>
         </div>
 
-        <div class="hero-content">
-          <NTag round size="small" class="hero-tag">OAuth2 / OIDC</NTag>
-          <h1 class="hero-title">
-            <span class="title-gradient">统一账号<br />与授权中心</span>
-          </h1>
-          <p class="hero-description">
-            安全、标准化的认证与授权基础设施。支持 OAuth2、OpenID Connect、
-            两步验证与通行密钥，为您的应用提供可靠的账号体系。
-          </p>
-          <NSpace class="hero-actions">
-            <NButton type="primary" size="large" @click="router.push({ name: 'login' })">
-              <template #icon><NIcon><LogIn /></NIcon></template>
-              立即登录
-            </NButton>
-            <NButton secondary size="large" @click="router.push({ name: 'register' })">创建账号</NButton>
-          </NSpace>
+        <div class="hero-body">
+          <div class="hero-content">
+            <div class="hero-status">
+              <span class="status-badge">
+                <span class="status-dot dot-teal"></span>
+                OAuth2 / OIDC
+              </span>
+              <span class="status-badge">
+                <span class="status-dot dot-blue"></span>
+                安全认证
+              </span>
+            </div>
+
+            <h1 class="hero-title">
+              <span class="title-gradient">统一账号<br />与授权中心</span>
+            </h1>
+
+            <p class="hero-desc">
+              专注于 <span class="text-accent">OAuth2</span> 与
+              <span class="text-accent">OpenID Connect</span> 标准协议，
+              <br class="hide-mobile">
+              提供安全、可靠的统一认证与授权基础设施。
+            </p>
+
+            <div class="hero-buttons">
+              <NButton type="primary" size="large" class="btn-primary" @click="router.push({ name: 'login' })">
+                <template #icon><NIcon><LogIn /></NIcon></template>
+                立即登录
+              </NButton>
+              <NButton secondary size="large" class="btn-secondary" @click="router.push({ name: 'register' })">
+                创建账号
+              </NButton>
+            </div>
+          </div>
         </div>
 
         <div class="scroll-indicator">
@@ -219,58 +238,56 @@ onUnmounted(() => {
       </section>
 
       <!-- Features -->
-      <section class="features-section page-container">
-        <div class="features-header">
-          <h2 class="features-title">核心能力</h2>
-          <p class="features-subtitle">标准协议、安全优先、开箱即用。</p>
-        </div>
-        <NGrid cols="1 s:2 l:3" responsive="screen" :x-gap="12" :y-gap="12">
-          <NGridItem v-for="feature in features" :key="feature.title">
-            <NCard size="small" class="feature-card">
-              <div class="feature-card-inner">
+      <section class="features-section">
+        <div class="section-inner">
+          <div class="section-header">
+            <h2 class="section-title">核心能力</h2>
+            <p class="section-subtitle">标准协议、安全优先、开箱即用。</p>
+          </div>
+
+          <div class="features-grid">
+            <div v-for="feature in features" :key="feature.title" class="feature-card-wrapper">
+              <div class="glass-card feature-card">
                 <div class="feature-icon-box">
-                  <NIcon size="22">
-                    <component :is="feature.icon" />
-                  </NIcon>
+                  <NIcon size="22"><component :is="feature.icon" /></NIcon>
                 </div>
-                <div class="feature-text">
-                  <NText class="feature-card-title">{{ feature.title }}</NText>
-                  <NText depth="3" class="feature-card-desc">{{ feature.description }}</NText>
-                </div>
+                <h3 class="feature-title">{{ feature.title }}</h3>
+                <p class="feature-desc">{{ feature.description }}</p>
               </div>
-            </NCard>
-          </NGridItem>
-        </NGrid>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- CTA -->
       <section class="cta-section">
         <div class="cta-banner">
-          <div class="cta-bg-glow">
-            <div class="cta-glow glow-1"></div>
-            <div class="cta-glow glow-2"></div>
-          </div>
-          <div class="cta-body page-container">
-            <h2 class="cta-title">准备好开始了吗？</h2>
-            <p class="cta-description">创建账号或集成您的应用，几分钟即可完成。</p>
-            <NSpace class="cta-actions">
-              <NButton type="primary" size="large" @click="router.push({ name: 'register' })">创建账号</NButton>
-              <NButton secondary size="large" @click="router.push({ name: 'login' })">登录</NButton>
-            </NSpace>
+          <div class="cta-glow glow-1"></div>
+          <div class="cta-glow glow-2"></div>
+          <div class="cta-body">
+            <h2 class="cta-heading">
+              准备好<br class="show-mobile"> 开始了吗？
+            </h2>
+            <p class="cta-desc">创建账号或集成您的应用，几分钟即可完成。</p>
+            <div class="cta-buttons">
+              <NButton type="primary" size="large" class="btn-primary" @click="router.push({ name: 'register' })">创建账号</NButton>
+              <NButton secondary size="large" class="btn-secondary" @click="router.push({ name: 'login' })">登录</NButton>
+            </div>
           </div>
         </div>
       </section>
     </main>
 
     <footer class="landing-footer">
-      <div class="page-container footer-inner">
-        <NText depth="3">{{ platformName }} &mdash; 统一账号与授权中心</NText>
-      </div>
+      <NText depth="3">{{ platformName }} &mdash; 统一账号与授权中心</NText>
     </footer>
   </div>
 </template>
 
 <style scoped>
+/* ========================================
+   Base
+   ======================================== */
 .landing-shell {
   display: flex;
   flex-direction: column;
@@ -278,27 +295,31 @@ onUnmounted(() => {
   min-height: 100dvh;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  background: var(--color-canvas);
+  background: #030712;
 }
 
-/* --- Header --- */
+/* ========================================
+   Header
+   ======================================== */
 .landing-header {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 50;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(3, 7, 18, 0.7);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--color-hairline);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.landing-header-inner {
+.header-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 56px;
-  padding: 0 20px;
+  padding: 0 24px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .landing-brand {
@@ -314,8 +335,8 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border-radius: 6px;
-  background: rgba(52, 159, 244, 0.18);
-  color: var(--color-accent-blue);
+  background: rgba(45, 212, 191, 0.18);
+  color: #2dd4bf;
   font-weight: 700;
   font-size: 15px;
 }
@@ -331,12 +352,16 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-/* --- Main --- */
+/* ========================================
+   Main
+   ======================================== */
 .landing-main {
   flex: 1;
 }
 
-/* --- Hero --- */
+/* ========================================
+   Hero
+   ======================================== */
 .hero-section {
   position: relative;
   min-height: 100vh;
@@ -345,25 +370,28 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 20px;
+  padding: 80px 24px;
   text-align: center;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse at 20% 50%, rgba(13, 148, 136, 0.08) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 50%, rgba(59, 130, 246, 0.06) 0%, transparent 60%);
 }
 
-.hero-bg-glow {
+.hero-bg {
   position: absolute;
   inset: 0;
   pointer-events: none;
+}
+
+.hero-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.12), transparent 40%, rgba(59, 130, 246, 0.08));
 }
 
 .glow-sphere {
   position: absolute;
   border-radius: 50%;
   filter: blur(80px);
-  opacity: 0.12;
+  opacity: 0.1;
   will-change: transform;
 }
 
@@ -389,28 +417,67 @@ onUnmounted(() => {
   width: 280px;
   height: 280px;
   background: #a855f7;
-  top: 45%;
-  left: 50%;
+  top: 50%;
+  left: 60%;
   animation: float-glow 20s ease-in-out infinite alternate;
 }
 
 @keyframes float-glow {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  100% {
-    transform: translate(30px, -40px) scale(1.15);
-  }
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(30px, -40px) scale(1.15); }
+}
+
+.hero-body {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 .hero-content {
-  position: relative;
-  z-index: 1;
-  max-width: 640px;
+  max-width: 720px;
+  margin: 0 auto;
 }
 
-.hero-tag {
-  margin-bottom: 20px;
+/* status badges */
+.hero-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot-teal {
+  background: #2dd4bf;
+  box-shadow: 0 0 8px rgba(45, 212, 191, 0.5);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.dot-blue {
+  background: #60a5fa;
+  box-shadow: 0 0 8px rgba(96, 165, 250, 0.5);
+  animation: pulse-dot 2s ease-in-out infinite 0.5s;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 0.6; transform: scale(0.9); }
+  50%      { opacity: 1; transform: scale(1.1); }
 }
 
 .hero-title {
@@ -428,17 +495,38 @@ onUnmounted(() => {
   -webkit-text-fill-color: transparent;
 }
 
-.hero-description {
-  max-width: 480px;
+.hero-desc {
+  max-width: 560px;
   margin: 20px auto 0;
-  font-size: clamp(15px, 1.4vw, 17px);
+  font-size: clamp(15px, 1.4vw, 18px);
   line-height: 1.7;
-  color: var(--color-charcoal);
+  color: rgba(255, 255, 255, 0.55);
 }
 
-.hero-actions {
-  margin-top: 32px;
+.hero-desc .text-accent {
+  color: #2dd4bf;
+  font-weight: 600;
+}
+
+.hero-buttons {
+  display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 12px;
+  margin-top: 36px;
+}
+
+.hero-buttons .btn-primary {
+  height: 50px;
+  padding: 0 28px;
+  font-size: 15px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(45, 212, 191, 0.15);
+}
+
+.hero-buttons .btn-secondary {
+  height: 50px;
+  font-size: 15px;
 }
 
 .scroll-indicator {
@@ -450,47 +538,68 @@ onUnmounted(() => {
   justify-content: center;
   z-index: 1;
   animation: bounce-down 2s ease-in-out infinite;
-  color: rgba(252, 253, 255, 0.4);
+  color: rgba(255, 255, 255, 0.3);
 }
 
 @keyframes bounce-down {
-  0%, 100% { transform: translateY(0); opacity: 0.4; }
-  50% { transform: translateY(8px); opacity: 0.8; }
+  0%, 100% { transform: translateY(0); opacity: 0.3; }
+  50%      { transform: translateY(8px); opacity: 0.7; }
 }
 
-/* --- Features --- */
+/* ========================================
+   Features
+   ======================================== */
 .features-section {
-  padding: 0 20px 80px;
-  position: relative;
-  z-index: 1;
+  padding: 80px 24px 100px;
+  background: linear-gradient(180deg, #030712 0%, #0f172a 100%);
 }
 
-.features-header {
+.section-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-header {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 48px;
 }
 
-.features-title {
+.section-title {
   margin: 0;
-  font-size: 28px;
-  font-weight: 650;
-  color: var(--color-ink);
+  font-size: 30px;
+  font-weight: 800;
+  color: #fcfdff;
 }
 
-.features-subtitle {
-  margin: 8px 0 0;
-  color: var(--color-charcoal);
-  font-size: 15px;
+.section-subtitle {
+  margin: 10px 0 0;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
-.feature-card {
-  border-radius: var(--radius-md);
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
 }
 
-.feature-card-inner {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
+.feature-card-wrapper {
+  padding-top: 4px;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 24px;
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.glass-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(45, 212, 191, 0.2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
 
 .feature-icon-box {
@@ -499,32 +608,29 @@ onUnmounted(() => {
   justify-content: center;
   width: 44px;
   height: 44px;
-  flex-shrink: 0;
-  border-radius: 10px;
-  background: rgba(45, 212, 191, 0.12);
+  border-radius: 12px;
+  background: rgba(45, 212, 191, 0.1);
   color: #2dd4bf;
+  margin-bottom: 16px;
 }
 
-.feature-text {
-  flex: 1;
-  min-width: 0;
+.feature-title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fcfdff;
 }
 
-.feature-card-title {
-  display: block;
-  font-weight: 600;
+.feature-desc {
+  margin: 0;
   font-size: 14px;
-  color: var(--color-ink);
-  margin-bottom: 4px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.5);
 }
 
-.feature-card-desc {
-  display: block;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-/* --- CTA --- */
+/* ========================================
+   CTA
+   ======================================== */
 .cta-section {
   padding: 0;
 }
@@ -532,14 +638,9 @@ onUnmounted(() => {
 .cta-banner {
   position: relative;
   overflow: hidden;
-  padding: 64px 0;
-  border-top: 1px solid var(--color-hairline);
-}
-
-.cta-bg-glow {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+  padding: 80px 24px;
+  background: #0f172a;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .cta-glow {
@@ -548,93 +649,144 @@ onUnmounted(() => {
   height: 400px;
   border-radius: 50%;
   filter: blur(100px);
-  opacity: 0.08;
+  pointer-events: none;
 }
 
 .cta-glow.glow-1 {
-  top: -100px;
+  top: -120px;
   right: -80px;
-  background: #14b8a6;
+  background: rgba(45, 212, 191, 0.3);
 }
 
 .cta-glow.glow-2 {
-  bottom: -120px;
+  bottom: -140px;
   left: -60px;
-  background: #3b82f6;
+  background: rgba(59, 130, 246, 0.2);
 }
 
 .cta-body {
   position: relative;
   z-index: 1;
+  max-width: 640px;
+  margin: 0 auto;
   text-align: center;
 }
 
-.cta-title {
+.cta-heading {
   margin: 0;
-  font-size: 28px;
-  font-weight: 650;
-  color: var(--color-ink);
+  font-size: clamp(26px, 4vw, 36px);
+  font-weight: 800;
+  color: #fcfdff;
+  line-height: 1.2;
 }
 
-.cta-description {
-  margin: 10px 0 24px;
-  color: var(--color-charcoal);
+.cta-desc {
+  margin: 14px 0 0;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.cta-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.cta-buttons .btn-primary {
+  height: 50px;
+  padding: 0 28px;
+  font-size: 15px;
+  border-radius: 10px;
+  background: #fcfdff;
+  color: #0f172a;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(255, 255, 255, 0.1);
+}
+
+.cta-buttons .btn-secondary {
+  height: 50px;
   font-size: 15px;
 }
 
-.cta-actions {
-  justify-content: center;
-}
-
-/* --- Footer --- */
+/* ========================================
+   Footer
+   ======================================== */
 .landing-footer {
-  border-top: 1px solid var(--color-hairline);
-}
-
-.footer-inner {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 56px;
-  padding: 0 20px;
+  padding: 0 24px;
   text-align: center;
+  font-size: 13px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-/* --- Responsive --- */
+/* ========================================
+   Responsive
+   ======================================== */
 @media (max-width: 720px) {
   .hero-section {
     padding: 60px 16px;
   }
 
+  .hero-status {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+    width: 100%;
+    max-width: 280px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .hero-buttons .btn-primary,
+  .hero-buttons .btn-secondary {
+    width: 100%;
+  }
+
   .glow-sphere {
     filter: blur(60px);
   }
-
-  .sphere-1 {
-    width: 300px;
-    height: 300px;
-  }
-
-  .sphere-2 {
-    width: 220px;
-    height: 220px;
-  }
-
-  .sphere-3 {
-    width: 180px;
-    height: 180px;
-  }
+  .sphere-1 { width: 300px; height: 300px; }
+  .sphere-2 { width: 220px; height: 220px; }
+  .sphere-3 { width: 180px; height: 180px; }
 
   .features-section {
-    padding: 0 16px 48px;
+    padding: 48px 16px 64px;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
   }
 
   .cta-banner {
-    padding: 48px 0;
+    padding: 56px 16px;
   }
 
-  .landing-header-inner {
+  .cta-buttons {
+    flex-direction: column;
+    max-width: 280px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .cta-buttons .btn-primary,
+  .cta-buttons .btn-secondary {
+    width: 100%;
+  }
+
+  .header-inner {
     padding: 0 12px;
+  }
+
+  .hide-mobile {
+    display: none;
   }
 }
 </style>
