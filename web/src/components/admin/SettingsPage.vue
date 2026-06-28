@@ -499,7 +499,7 @@ function extractRetryAfter(message: string) {
 	justify-content: space-between;
 	gap: 16px;
 	padding: 14px 16px;
-	border: 1px solid rgba(255, 255, 255, 0.08);
+	border: 1px solid var(--color-hairline);
 	border-radius: 10px;
 	background: rgba(255, 255, 255, 0.02);
 }
@@ -513,7 +513,7 @@ function extractRetryAfter(message: string) {
 .passkey-name {
 	font-size: 15px;
 	font-weight: 600;
-	color: #eff6ff;
+	color: var(--color-ink);
 	overflow-wrap: anywhere;
 }
 
@@ -522,7 +522,7 @@ function extractRetryAfter(message: string) {
   gap: 6px;
   margin: 0 0 16px;
   padding: 10px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-hairline);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.02);
 }
@@ -531,12 +531,12 @@ function extractRetryAfter(message: string) {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: rgba(226, 236, 248, 0.64);
+  color: var(--color-charcoal);
   font-size: 13px;
 }
 
 .password-rule.passed {
-  color: #7ed6a7;
+  color: var(--color-accent-green);
 }
 
 .totp-verify-row {

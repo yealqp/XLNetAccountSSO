@@ -288,7 +288,7 @@ function isActionPending(actionKey: string) {
 
 .token-group-meta {
   margin: 8px 0 0;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--color-charcoal);
 }
 
 .table-scroll {

@@ -224,12 +224,12 @@ function getQueryValue(key: string) {
 
 <style scoped>
 .auth-panel-view {
-  color: #eff6ff;
+  color: var(--color-ink);
 }
 
 .auth-panel-kicker {
   margin: 0;
-  color: rgba(208, 226, 248, 0.72);
+  color: var(--color-charcoal);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -259,13 +259,13 @@ function getQueryValue(key: string) {
   height: 56px;
   border-radius: 10px;
   background: rgba(52, 159, 244, 0.18);
-  color: #9fd6ff;
+  color: var(--color-accent-blue);
   flex-shrink: 0;
 }
 
 .client-avatar-image {
   object-fit: cover;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-hairline);
 }
 
 .client-avatar-fallback {
@@ -287,7 +287,7 @@ function getQueryValue(key: string) {
 
 .client-subtitle {
   margin: 0;
-  color: rgba(226, 236, 248, 0.68);
+  color: var(--color-charcoal);
   font-size: 14px;
   line-height: 1.65;
 }

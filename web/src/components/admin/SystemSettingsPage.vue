@@ -239,12 +239,12 @@ function resetLocalPreview() {
   height: 48px;
   object-fit: cover;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-hairline);
 }
 
 .icon-preview-fallback {
   background: rgba(52, 159, 244, 0.18);
-  color: #9fd6ff;
+  color: var(--color-accent-blue);
 }
 
 .icon-preview-meta {

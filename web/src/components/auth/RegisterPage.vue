@@ -286,7 +286,7 @@ function extractRetryAfter(message: string) {
 
 <style scoped>
 .auth-panel-view {
-  color: #eff6ff;
+  color: var(--color-ink);
 }
 
 .auth-panel-header {
@@ -295,7 +295,7 @@ function extractRetryAfter(message: string) {
 
 .auth-panel-kicker {
   margin: 0 0 10px;
-  color: rgba(208, 226, 248, 0.72);
+  color: var(--color-charcoal);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -311,7 +311,7 @@ function extractRetryAfter(message: string) {
 
 .auth-panel-subtitle {
   margin: 10px 0 0;
-  color: rgba(226, 236, 248, 0.68);
+  color: var(--color-charcoal);
   font-size: 14px;
   line-height: 1.65;
 }
@@ -330,7 +330,7 @@ function extractRetryAfter(message: string) {
 	gap: 6px;
 	margin-top: -2px;
 	padding: 10px 12px;
-	border: 1px solid rgba(255, 255, 255, 0.08);
+	border: 1px solid var(--color-hairline);
 	border-radius: 8px;
 	background: rgba(255, 255, 255, 0.02);
 }
@@ -339,12 +339,12 @@ function extractRetryAfter(message: string) {
 	display: flex;
 	align-items: center;
 	gap: 8px;
-	color: rgba(226, 236, 248, 0.64);
+	color: var(--color-charcoal);
 	font-size: 13px;
 }
 
 .password-rule.passed {
-	color: #7ed6a7;
+	color: var(--color-accent-green);
 }
 
 .cap-shell {
@@ -379,6 +379,6 @@ function extractRetryAfter(message: string) {
 }
 
 .auth-link-row a {
-  color: #9fd6ff;
+  color: var(--color-accent-blue);
 }
 </style>

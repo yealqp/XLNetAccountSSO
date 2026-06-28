@@ -209,7 +209,7 @@ function openSecretDialog(secret: string) {
 .client-avatar {
   border-radius: 8px;
   background: rgba(52, 159, 244, 0.18);
-  color: #9fd6ff;
+  color: var(--color-accent-blue);
   flex-shrink: 0;
 }
 
@@ -226,7 +226,7 @@ function openSecretDialog(secret: string) {
 
 .cell-description {
   margin-top: 6px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--color-charcoal);
 }
 
 .uri-line + .uri-line {

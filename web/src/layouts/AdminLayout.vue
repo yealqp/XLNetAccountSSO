@@ -178,7 +178,7 @@ async function handleNavigate(key: string) {
   align-items: center;
   height: 56px;
   padding: 0 20px;
-  border-bottom: 1px solid #29292c;
+  border-bottom: 1px solid var(--color-hairline);
 }
 
 .admin-content-layout {
@@ -186,7 +186,7 @@ async function handleNavigate(key: string) {
 }
 
 .content-layout {
-  background: #101014;
+  background: var(--color-canvas);
 }
 
 .admin-header {

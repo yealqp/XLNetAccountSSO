@@ -211,7 +211,7 @@ async function handlePasskeySignIn() {
 
 <style scoped>
 .auth-panel-view {
-  color: #eff6ff;
+  color: var(--color-ink);
 }
 
 .auth-panel-header {
@@ -220,7 +220,7 @@ async function handlePasskeySignIn() {
 
 .auth-panel-kicker {
   margin: 0 0 10px;
-  color: rgba(208, 226, 248, 0.72);
+  color: var(--color-charcoal);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -236,7 +236,7 @@ async function handlePasskeySignIn() {
 
 .auth-panel-subtitle {
   margin: 10px 0 0;
-  color: rgba(226, 236, 248, 0.68);
+  color: var(--color-charcoal);
   font-size: 14px;
   line-height: 1.65;
 }
@@ -256,6 +256,6 @@ async function handlePasskeySignIn() {
 }
 
 .auth-link-row a {
-  color: #9fd6ff;
+  color: var(--color-accent-blue);
 }
 </style>
