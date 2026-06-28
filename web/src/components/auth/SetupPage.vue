@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { useHead } from '@unhead/vue'
 import { NAlert, NButton, NForm, NFormItem, NInput, useMessage } from 'naive-ui'
 import { reactive, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+
+useHead({ title: '初始化 — XLNetAccount' })
 
 import { ApiError } from '@/api/http'
 import { usePlatformStore } from '@/stores/platform'

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useHead } from '@unhead/vue'
 import {
   NButton,
   NCard,
@@ -10,6 +11,8 @@ import {
   NText,
   useMessage,
 } from 'naive-ui'
+
+useHead({ title: '连接信息 — XLNetAccount' })
 
 import { getConnectionInfo } from '@/config/endpoints'
 

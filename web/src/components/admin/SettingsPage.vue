@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { NAlert, NButton, NCard, NForm, NFormItem, NInput, NSpace, NSpin, NText, useMessage } from 'naive-ui'
+import { useHead } from '@unhead/vue'
+import { NAlert, NButton, NCard, NForm, NFormItem, NGrid, NGridItem, NInput, NSpace, NSpin, NText, useMessage } from 'naive-ui'
 import { computed, onBeforeUnmount, onMounted, reactive, shallowRef } from 'vue'
+
+useHead({ title: '普通设置 — XLNetAccount' })
 
 import { sendProfilePasswordCode, updateProfile } from '@/api/auth'
 import { ApiError } from '@/api/http'
@@ -130,70 +133,70 @@ async function handleSendProfileCode() {
 }
 
 async function loadPasskeys() {
-	isLoadingPasskeys.value = true
-	passkeyError.value = ''
-	try {
-		const response = await fetchPasskeys()
-		passkeys.value = response.items
-	}
-	catch (error) {
-		passkeyError.value = error instanceof ApiError ? error.message : '加载通行密钥失败'
-	}
-	finally {
-		isLoadingPasskeys.value = false
-	}
+  isLoadingPasskeys.value = true
+  passkeyError.value = ''
+  try {
+    const response = await fetchPasskeys()
+    passkeys.value = response.items
+  }
+  catch (error) {
+    passkeyError.value = error instanceof ApiError ? error.message : '加载通行密钥失败'
+  }
+  finally {
+    isLoadingPasskeys.value = false
+  }
 }
 
 async function handleCreatePasskey() {
-	isCreatingPasskey.value = true
-	passkeyError.value = ''
-	try {
-		const start = await startPasskeyRegistration()
-		const credential = await createPasskeyCredential(start.options)
-		const response = await finishPasskeyRegistration({
-			session_id: start.session_id,
-			name: passkeyState.name.trim() || undefined,
-			credential,
-		})
-		passkeys.value = [response.credential, ...passkeys.value.filter(item => item.id !== response.credential.id)]
-		passkeyState.name = ''
-		message.success('通行密钥已添加')
-	}
-	catch (error) {
-		passkeyError.value = error instanceof ApiError ? error.message : describePasskeyError(error)
-		message.error(passkeyError.value)
-	}
-	finally {
-		isCreatingPasskey.value = false
-	}
+  isCreatingPasskey.value = true
+  passkeyError.value = ''
+  try {
+    const start = await startPasskeyRegistration()
+    const credential = await createPasskeyCredential(start.options)
+    const response = await finishPasskeyRegistration({
+      session_id: start.session_id,
+      name: passkeyState.name.trim() || undefined,
+      credential,
+    })
+    passkeys.value = [response.credential, ...passkeys.value.filter(item => item.id !== response.credential.id)]
+    passkeyState.name = ''
+    message.success('通行密钥已添加')
+  }
+  catch (error) {
+    passkeyError.value = error instanceof ApiError ? error.message : describePasskeyError(error)
+    message.error(passkeyError.value)
+  }
+  finally {
+    isCreatingPasskey.value = false
+  }
 }
 
 async function handleDeletePasskey(passkeyId: string) {
-	deletingPasskeyId.value = passkeyId
-	passkeyError.value = ''
-	try {
-		await deletePasskey(passkeyId)
-		passkeys.value = passkeys.value.filter(item => item.id !== passkeyId)
-		message.success('通行密钥已删除')
-	}
-	catch (error) {
-		passkeyError.value = error instanceof ApiError ? error.message : '删除通行密钥失败'
-		message.error(passkeyError.value)
-	}
-	finally {
-		deletingPasskeyId.value = ''
-	}
+  deletingPasskeyId.value = passkeyId
+  passkeyError.value = ''
+  try {
+    await deletePasskey(passkeyId)
+    passkeys.value = passkeys.value.filter(item => item.id !== passkeyId)
+    message.success('通行密钥已删除')
+  }
+  catch (error) {
+    passkeyError.value = error instanceof ApiError ? error.message : '删除通行密钥失败'
+    message.error(passkeyError.value)
+  }
+  finally {
+    deletingPasskeyId.value = ''
+  }
 }
 
 function formatPasskeyTime(value: string | null) {
-	if (!value) {
-		return '未使用'
-	}
-	const date = new Date(value)
-	if (Number.isNaN(date.getTime())) {
-		return value
-	}
-	return date.toLocaleString('zh-CN', { hour12: false })
+  if (!value) {
+    return '未使用'
+  }
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+  return date.toLocaleString('zh-CN', { hour12: false })
 }
 
 async function loadTOTPStatus() {
@@ -359,162 +362,167 @@ function extractRetryAfter(message: string) {
       </NForm>
     </NCard>
 
-		<NCard title="通行密钥">
-			<NSpace vertical :size="16">
-				<NText depth="3">使用当前设备支持的通行密钥完成无密码登录。保留密码登录作为回退方式。</NText>
+    <NGrid cols="1 l:2" responsive="screen" :x-gap="12" :y-gap="12">
+      <NGridItem>
+        <NCard title="通行密钥" size="small">
+          <NSpace vertical :size="12">
+            <NText depth="3">使用通行密钥完成无密码登录，保留密码作为回退方式。</NText>
 
-				<NAlert v-if="passkeySupportMessage" type="warning" :show-icon="false">
-					{{ passkeySupportMessage }}
-				</NAlert>
-
-				<NAlert v-if="passkeyError" type="error" :show-icon="false">
-					{{ passkeyError }}
-				</NAlert>
-
-				<NForm label-placement="top" @submit.prevent="handleCreatePasskey">
-					<NFormItem label="通行密钥名称">
-						<NSpace style="width: 100%;" :wrap="false">
-							<NInput v-model:value="passkeyState.name" placeholder="当前设备（可选）" />
-							<NButton
-								type="primary"
-								attr-type="submit"
-								data-testid="passkey-enroll-button"
-								:loading="isCreatingPasskey"
-								:disabled="Boolean(passkeySupportMessage)"
-							>
-								添加通行密钥
-							</NButton>
-						</NSpace>
-					</NFormItem>
-				</NForm>
-
-				<NSpin :show="isLoadingPasskeys">
-					<div v-if="passkeys.length > 0" class="passkey-list">
-						<div v-for="passkey in passkeys" :key="passkey.id" class="passkey-item">
-							<div class="passkey-item-main">
-								<div class="passkey-name">{{ passkey.name }}</div>
-								<NText depth="3">创建于 {{ formatPasskeyTime(passkey.created_at) }}</NText>
-								<NText depth="3">最近使用 {{ formatPasskeyTime(passkey.last_used_at) }}</NText>
-							</div>
-							<NButton
-								secondary
-								type="error"
-								data-testid="passkey-delete-button"
-								:loading="deletingPasskeyId === passkey.id"
-								@click="handleDeletePasskey(passkey.id)"
-							>
-								删除
-							</NButton>
-						</div>
-					</div>
-					<NText v-else depth="3">当前还没有绑定通行密钥。</NText>
-				</NSpin>
-			</NSpace>
-		</NCard>
-    <NCard title="两步验证（2FA）">
-      <NSpace vertical :size="16">
-        <NText depth="3">启用两步验证后，登录时需额外输入验证器 App 生成的 6 位动态码，增强账号安全性。</NText>
-
-        <NAlert v-if="totpError" type="error" :show-icon="false">
-          {{ totpError }}
-        </NAlert>
-
-        <NSpin :show="isLoadingTOTPStatus">
-          <template v-if="!totpEnabled && !showTotpSetup">
-            <NButton type="primary" data-testid="totp-enable-button" :loading="isEnablingTOTP" @click="handleEnableTOTP">
-              启用两步验证
-            </NButton>
-          </template>
-
-          <template v-if="showTotpSetup && totpSetupData">
-            <NAlert type="info" :show-icon="false">
-              <template #header>
-                使用验证器 App 扫描以下二维码
-              </template>
-              <div style="text-align: center; margin: 16px 0;">
-                <img :src="totpSetupData.qr_data_uri" alt="TOTP QR Code" style="width: 200px; height: 200px; border-radius: 8px;" />
-              </div>
-              <div style="text-align: center; margin-bottom: 12px;">
-                <NText depth="3">无法扫描？手动输入密钥：</NText>
-                <NText code>{{ totpSetupData.secret }}</NText>
-              </div>
+            <NAlert v-if="passkeySupportMessage" type="warning" :show-icon="false">
+              {{ passkeySupportMessage }}
             </NAlert>
 
-            <div class="totp-verify-row">
-              <NInput
-                v-model:value="totpSetupCode"
-                placeholder="输入 6 位动态码"
-                maxlength="6"
-                style="flex: 1;"
-              />
-              <NButton type="primary" :loading="isEnablingTOTP" @click="handleVerifyTOTPSetup">
-                验证
-              </NButton>
-              <NButton secondary @click="handleCancelTOTPSetup">
-                取消
-              </NButton>
-            </div>
-
-            <NAlert v-if="totpSetupError" type="error" :show-icon="false">
-              {{ totpSetupError }}
+            <NAlert v-if="passkeyError" type="error" :show-icon="false">
+              {{ passkeyError }}
             </NAlert>
-          </template>
 
-          <template v-if="totpEnabled && !showTotpSetup">
-            <div class="totp-status-row">
-              <NText type="success">两步验证已启用</NText>
-              <template v-if="!showTotpDisableConfirm">
-                <NButton secondary type="error" data-testid="totp-disable-button" @click="showTotpDisableConfirm = true">
-                  关闭两步验证
-                </NButton>
-              </template>
-              <template v-else>
-                <NSpace>
-                  <NText depth="3">确认关闭？</NText>
-                  <NButton type="error" size="small" :loading="isDisablingTOTP" @click="handleDisableTOTP">
-                    确认关闭
-                  </NButton>
-                  <NButton secondary size="small" @click="showTotpDisableConfirm = false">
-                    取消
+            <NForm label-placement="top" @submit.prevent="handleCreatePasskey">
+              <NFormItem label="通行密钥名称">
+                <NSpace style="width: 100%;" :wrap="false">
+                  <NInput v-model:value="passkeyState.name" placeholder="当前设备（可选）" />
+                  <NButton
+                    type="primary"
+                    attr-type="submit"
+                    data-testid="passkey-enroll-button"
+                    :loading="isCreatingPasskey"
+                    :disabled="Boolean(passkeySupportMessage)"
+                  >
+                    添加通行密钥
                   </NButton>
                 </NSpace>
+              </NFormItem>
+            </NForm>
+
+            <NSpin :show="isLoadingPasskeys">
+              <div v-if="passkeys.length > 0" class="passkey-list">
+                <div v-for="passkey in passkeys" :key="passkey.id" class="passkey-item">
+                  <div class="passkey-item-main">
+                    <div class="passkey-name">{{ passkey.name }}</div>
+                    <NText depth="3">创建于 {{ formatPasskeyTime(passkey.created_at) }}</NText>
+                    <NText depth="3">最近使用 {{ formatPasskeyTime(passkey.last_used_at) }}</NText>
+                  </div>
+                  <NButton
+                    secondary
+                    type="error"
+                    data-testid="passkey-delete-button"
+                    :loading="deletingPasskeyId === passkey.id"
+                    @click="handleDeletePasskey(passkey.id)"
+                  >
+                    删除
+                  </NButton>
+                </div>
+              </div>
+              <NText v-else depth="3">当前还没有绑定通行密钥。</NText>
+            </NSpin>
+          </NSpace>
+        </NCard>
+      </NGridItem>
+      <NGridItem>
+        <NCard title="两步验证（2FA）" size="small">
+          <NSpace vertical :size="12">
+            <NText depth="3">启用后登录需额外输入验证器 App 生成的 6 位动态码，增强账号安全性。</NText>
+
+            <NAlert v-if="totpError" type="error" :show-icon="false">
+              {{ totpError }}
+            </NAlert>
+
+            <NSpin :show="isLoadingTOTPStatus">
+              <template v-if="!totpEnabled && !showTotpSetup">
+                <NButton type="primary" data-testid="totp-enable-button" :loading="isEnablingTOTP" @click="handleEnableTOTP">
+                  启用两步验证
+                </NButton>
               </template>
-            </div>
-          </template>
-        </NSpin>
-      </NSpace>
-    </NCard>
+
+              <template v-if="showTotpSetup && totpSetupData">
+                <NAlert type="info" :show-icon="false">
+                  <template #header>
+                    使用验证器 App 扫描以下二维码
+                  </template>
+                  <div style="text-align: center; margin: 12px 0;">
+                    <img :src="totpSetupData.qr_data_uri" alt="TOTP QR Code" style="width: 180px; height: 180px; border-radius: 6px;" />
+                  </div>
+                  <div style="text-align: center; margin-bottom: 8px;">
+                    <NText depth="3">无法扫描？手动输入密钥：</NText>
+                    <NText code>{{ totpSetupData.secret }}</NText>
+                  </div>
+                </NAlert>
+
+                <div class="totp-verify-row">
+                  <NInput
+                    v-model:value="totpSetupCode"
+                    placeholder="输入 6 位动态码"
+                    maxlength="6"
+                  />
+                  <NButton type="primary" :loading="isEnablingTOTP" @click="handleVerifyTOTPSetup">
+                    验证
+                  </NButton>
+                  <NButton secondary @click="handleCancelTOTPSetup">
+                    取消
+                  </NButton>
+                </div>
+
+                <NAlert v-if="totpSetupError" type="error" :show-icon="false">
+                  {{ totpSetupError }}
+                </NAlert>
+              </template>
+
+              <template v-if="totpEnabled && !showTotpSetup">
+                <div class="totp-status-row">
+                  <NText type="success">两步验证已启用</NText>
+                  <template v-if="!showTotpDisableConfirm">
+                    <NButton secondary type="error" data-testid="totp-disable-button" @click="showTotpDisableConfirm = true">
+                      关闭两步验证
+                    </NButton>
+                  </template>
+                  <template v-else>
+                    <NSpace>
+                      <NText depth="3">确认关闭？</NText>
+                      <NButton type="error" size="small" :loading="isDisablingTOTP" @click="handleDisableTOTP">
+                        确认关闭
+                      </NButton>
+                      <NButton secondary size="small" @click="showTotpDisableConfirm = false">
+                        取消
+                      </NButton>
+                    </NSpace>
+                  </template>
+                </div>
+              </template>
+            </NSpin>
+          </NSpace>
+        </NCard>
+      </NGridItem>
+    </NGrid>
   </section>
 </template>
 
 <style scoped>
 .passkey-list {
-	display: grid;
-	gap: 12px;
+  display: grid;
+  gap: 12px;
 }
 
 .passkey-item {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 16px;
-	padding: 14px 16px;
-	border: 1px solid var(--color-hairline);
-	border-radius: 10px;
-	background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .passkey-item-main {
-	display: grid;
-	gap: 4px;
-	min-width: 0;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
 }
 
 .passkey-name {
-	font-size: 15px;
-	font-weight: 600;
-	color: var(--color-ink);
-	overflow-wrap: anywhere;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
 }
 
 .password-rule-list {
@@ -523,7 +531,7 @@ function extractRetryAfter(message: string) {
   margin: 0 0 16px;
   padding: 10px 12px;
   border: 1px solid var(--color-hairline);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.02);
 }
 
@@ -554,9 +562,9 @@ function extractRetryAfter(message: string) {
 }
 
 @media (max-width: 720px) {
-	.passkey-item {
-		align-items: flex-start;
-		flex-direction: column;
-	}
+  .passkey-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 </style>

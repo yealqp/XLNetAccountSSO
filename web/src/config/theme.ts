@@ -43,6 +43,7 @@ export const darkThemeOverrides: GlobalThemeOverrides = {
     borderColor: 'rgba(255,255,255,0.2)',
     titleTextColor: '#fcfdff',
     headerExtraTextColor: 'rgba(252,253,255,0.92)',
+    borderRadius: '6px',
   },
   Menu: {
     color: '#000000',
@@ -93,7 +94,7 @@ export const darkThemeOverrides: GlobalThemeOverrides = {
     textColorHoverPrimary: '#000000',
     textColorActivePrimary: '#000000',
     textColorFocusPrimary: '#000000',
-    borderRadius: '8px',
+    borderRadius: '6px',
   },
   DataTable: {
     thColor: '#0d0d11',
@@ -109,12 +110,14 @@ export const darkThemeOverrides: GlobalThemeOverrides = {
     titleTextColor: '#fcfdff',
     contentTextColor: 'rgba(252,253,255,0.92)',
     borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: '6px',
   },
   Drawer: {
     color: '#0d0d11',
     headerTextColor: '#fcfdff',
     bodyTextColor: 'rgba(252,253,255,0.92)',
     borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: '6px',
   },
   Notification: {
     color: '#0d0d11',
@@ -145,6 +148,7 @@ export const darkThemeOverrides: GlobalThemeOverrides = {
     headerTextColor: '#fcfdff',
     bodyTextColor: 'rgba(252,253,255,0.92)',
     borderColor: 'rgba(255,255,255,0.2)',
+    borderRadius: '6px',
   },
   Progress: {
     railColor: 'rgba(255,255,255,0.1)',

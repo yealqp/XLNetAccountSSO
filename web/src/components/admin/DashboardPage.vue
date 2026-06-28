@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { NAlert, NButton, NCard, NDescriptions, NDescriptionsItem, NGrid, NGridItem, NIcon, NSpace, NTag, useMessage } from 'naive-ui'
+import { useHead } from '@unhead/vue'
+import { NButton, NCard, NDescriptions, NDescriptionsItem, NGrid, NGridItem, NIcon, NSpace, NTag, useMessage } from 'naive-ui'
 import { computed, onMounted, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { AppWindow, Link2, Settings, Shield, WalletCards } from 'lucide-vue-next'
+
+useHead({ title: '概览 — XLNetAccount' })
 
 import { fetchManagedOverview, fetchOverview } from '@/api/admin'
 import StatPanel from '@/components/admin/StatPanel.vue'
@@ -17,20 +20,22 @@ const loadError = shallowRef('')
 const router = useRouter()
 const route = useRoute()
 const manageAll = computed(() => route.meta.manageScope === 'all')
-const userProfileItems = computed(() => [
-  {
-    label: '用户 ID',
-    value: String(sessionStore.user?.id ?? '-'),
-  },
-  {
-    label: '用户名',
-    value: sessionStore.user?.username ?? '-',
-  },
-  {
-    label: '绑定邮箱',
-    value: sessionStore.user?.email || '-',
-  },
-])
+
+const welcomeTitle = computed(() => manageAll.value ? '欢迎回来' : '用户概览')
+const welcomeSubtitle = computed(() => manageAll.value ? '平台整体资源概览。' : '当前账号信息与资源概览。')
+
+const quickLinks = computed(() => {
+  const links = [
+    { name: manageAll.value ? 'manage-applications' : 'applications', icon: AppWindow, label: manageAll.value ? '应用管理' : '应用' },
+    { name: manageAll.value ? 'manage-tokens' : 'tokens', icon: WalletCards, label: manageAll.value ? '令牌管理' : '令牌' },
+    { name: 'connection-info', icon: Link2, label: '连接信息' },
+    { name: 'settings', icon: Settings, label: '普通设置' },
+  ]
+  if (sessionStore.user?.role === 'admin') {
+    links.push({ name: 'system-settings', icon: Shield, label: '系统设置' })
+  }
+  return links
+})
 
 onMounted(async () => {
   await loadOverview()
@@ -55,34 +60,29 @@ async function loadOverview() {
 
 <template>
   <section class="page-stack">
-    <NCard v-if="manageAll">
-      <div class="welcome-header">
-        <div>
-          <h1 class="page-title">欢迎回来，{{ sessionStore.user?.username }}</h1>
-          <p class="page-subtitle">{{ manageAll ? '查看平台整体资源概览。' : '查看您当前账号的资源概览。' }}</p>
+    <div class="overview-hero">
+      <div class="overview-hero-main">
+        <div class="overview-hero-text">
+          <h1 class="page-title">{{ welcomeTitle }}，{{ sessionStore.user?.username }}</h1>
+          <p class="page-subtitle">{{ welcomeSubtitle }}</p>
         </div>
-        <NSpace>
-          <NTag round type="info">OAuth2</NTag>
-          <NTag round>Opaque Token</NTag>
+        <NSpace wrap>
+          <NTag round type="info">/{{ sessionStore.user?.role ?? 'user' }}</NTag>
+          <NTag round>OAuth2</NTag>
         </NSpace>
       </div>
-    </NCard>
-
-    <NCard v-else>
-      <div class="welcome-header">
-        <div>
-          <h1 class="page-title">用户概览</h1>
-          <p class="page-subtitle">查看当前账号信息与您拥有的资源数量。</p>
-        </div>
-        <NTag round type="info">{{ sessionStore.user?.role ?? 'user' }}</NTag>
-      </div>
-
-      <NDescriptions label-placement="top" :column="3" bordered>
-        <NDescriptionsItem v-for="item in userProfileItems" :key="item.label" :label="item.label">
-          {{ item.value }}
+      <NDescriptions v-if="!manageAll" label-placement="top" :column="3" size="small" class="overview-profile">
+        <NDescriptionsItem label="用户 ID">
+          {{ sessionStore.user?.id ?? '-' }}
+        </NDescriptionsItem>
+        <NDescriptionsItem label="用户名">
+          {{ sessionStore.user?.username ?? '-' }}
+        </NDescriptionsItem>
+        <NDescriptionsItem label="绑定邮箱">
+          {{ sessionStore.user?.email || '-' }}
         </NDescriptionsItem>
       </NDescriptions>
-    </NCard>
+    </div>
 
     <NAlert v-if="loadError" type="error" :show-icon="false">
       <div class="page-alert">
@@ -91,60 +91,62 @@ async function loadOverview() {
       </div>
     </NAlert>
 
-    <NGrid :cols="manageAll ? '1 s:2 l:3' : '1 s:2'" responsive="screen" :x-gap="16" :y-gap="16">
+    <NGrid :cols="manageAll ? '1 s:2 l:4' : '1 s:2'" responsive="screen" :x-gap="12" :y-gap="12">
       <NGridItem v-if="manageAll">
-        <StatPanel label="用户数" :value="overview?.users ?? '--'" detail="当前已创建账号总数。" />
+        <StatPanel label="用户数" :value="overview?.users ?? '--'" detail="已创建账号总数" />
       </NGridItem>
       <NGridItem>
-        <StatPanel :label="manageAll ? '客户端' : '应用数量'" :value="overview?.clients ?? '--'" :detail="manageAll ? '已注册 OAuth 应用数量。' : '当前账号拥有的应用数量。'" />
+        <StatPanel
+          :label="manageAll ? '客户端' : '应用数量'"
+          :value="overview?.clients ?? '--'"
+          :detail="manageAll ? '已注册 OAuth 应用' : '当前账号拥有的应用'"
+        />
       </NGridItem>
       <NGridItem>
-        <StatPanel :label="manageAll ? '有效令牌' : '令牌数量'" :value="overview?.access_tokens ?? '--'" :detail="manageAll ? '未撤销且未过期的 access token。' : '当前账号拥有的有效令牌数量。'" />
+        <StatPanel
+          :label="manageAll ? '有效令牌' : '令牌数量'"
+          :value="overview?.access_tokens ?? '--'"
+          :detail="manageAll ? '未撤销且未过期的 access token' : '当前账号的有效令牌'"
+        />
       </NGridItem>
     </NGrid>
 
-    <NGrid cols="1 l:2" responsive="screen" :x-gap="16" :y-gap="16">
-      <NGridItem>
-        <NCard title="快捷入口">
-          <NSpace>
-            <NButton tertiary @click="router.push({ name: manageAll ? 'manage-applications' : 'applications' })">
-              <template #icon><NIcon><AppWindow /></NIcon></template>
-              {{ manageAll ? '应用管理' : '应用' }}
-            </NButton>
-            <NButton tertiary @click="router.push({ name: manageAll ? 'manage-tokens' : 'tokens' })">
-              <template #icon><NIcon><WalletCards /></NIcon></template>
-              {{ manageAll ? '令牌管理' : '令牌' }}
-            </NButton>
-            <NButton tertiary @click="router.push({ name: 'settings' })">
-              <template #icon><NIcon><Settings /></NIcon></template>
-              普通设置
-            </NButton>
-            <NButton tertiary @click="router.push({ name: 'connection-info' })">
-              <template #icon><NIcon><Link2 /></NIcon></template>
-              连接信息
-            </NButton>
-            <NButton v-if="sessionStore.user?.role === 'admin'" tertiary @click="router.push({ name: 'system-settings' })">
-              <template #icon><NIcon><Shield /></NIcon></template>
-              系统设置
-            </NButton>
-          </NSpace>
-        </NCard>
-      </NGridItem>
-      <NGridItem>
-        <NCard :title="manageAll ? '管理提示' : '使用提示'">
-          {{ manageAll ? '在管理页面可以查看全量资源，并识别资源所属用户。' : '您只能查看和维护自己拥有的应用与令牌。' }}
-        </NCard>
-      </NGridItem>
-    </NGrid>
+    <NCard size="small">
+      <div class="quick-links">
+        <button
+          v-for="link in quickLinks"
+          :key="link.name"
+          class="quick-link-btn"
+          @click="router.push({ name: link.name })"
+        >
+          <NIcon size="18"><component :is="link.icon" /></NIcon>
+          <span>{{ link.label }}</span>
+        </button>
+      </div>
+    </NCard>
   </section>
 </template>
 
 <style scoped>
-.welcome-header {
+.overview-hero {
+  display: grid;
+  gap: 12px;
+}
+
+.overview-hero-main {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.overview-hero-text {
+  min-width: 0;
+}
+
+.overview-profile {
+  margin-top: 0;
 }
 
 .page-alert {
@@ -154,9 +156,33 @@ async function loadOverview() {
   gap: 12px;
 }
 
+.quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quick-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--color-hairline-strong);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-body);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.quick-link-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
 @media (max-width: 820px) {
-  .welcome-header {
-    align-items: flex-start;
+  .overview-hero-main {
     flex-direction: column;
   }
 

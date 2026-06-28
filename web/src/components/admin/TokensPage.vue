@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useHead } from '@unhead/vue'
 import {
   NAlert,
   NButton,
@@ -14,6 +15,8 @@ import {
 } from 'naive-ui'
 import { computed, onMounted, shallowRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
+
+useHead({ title: '令牌管理 — XLNetAccount' })
 
 import {
   fetchTokens,

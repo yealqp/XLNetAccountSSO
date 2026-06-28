@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { useHead } from '@unhead/vue'
 import { NAlert, NButton, NForm, NFormItem, NInput, useMessage } from 'naive-ui'
 import { computed, reactive, shallowRef } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+
+useHead({ title: '登录 — XLNetAccount' })
 
 import { ApiError } from '@/api/http'
 import { startPasskeyLogin } from '@/api/passkeys'

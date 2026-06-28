@@ -12,7 +12,8 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/admin',
+      name: 'landing',
+      component: () => import('@/components/landing/LandingPage.vue'),
     },
     {
       path: '/auth',
@@ -124,6 +125,13 @@ router.beforeEach(async (to) => {
       return { name: 'overview' }
     }
     return { name: 'login' }
+  }
+
+  if (initialized && to.name === 'landing') {
+    await sessionStore.ensureSession()
+    if (sessionStore.authenticated) {
+      return { name: 'overview' }
+    }
   }
 
   if (initialized && (to.name === 'login' || to.name === 'register' || to.name === 'authorize')) {

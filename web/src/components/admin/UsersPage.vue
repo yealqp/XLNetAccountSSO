@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import { useHead } from '@unhead/vue'
 import { NAlert, NButton, NCard, NEmpty, NPopconfirm, NSpace, NTable, NTag, useMessage } from 'naive-ui'
 import { onMounted, shallowRef } from 'vue'
+
+useHead({ title: '用户管理 — XLNetAccount' })
 
 import { deleteUser, fetchUsers } from '@/api/admin'
 import { ApiError } from '@/api/http'

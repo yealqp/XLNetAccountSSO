@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useHead } from '@unhead/vue'
 import {
   NAlert,
   NAvatar,
@@ -15,6 +16,8 @@ import {
 } from 'naive-ui'
 import { computed, h, onMounted, shallowRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
+
+useHead({ title: '应用管理 — XLNetAccount' })
 
 import { ApiError } from '@/api/http'
 import { deleteClient, deleteManagedClient, fetchClients, fetchManagedClients } from '@/api/admin'

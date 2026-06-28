@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { useHead } from '@unhead/vue'
 import '@cap.js/widget'
 
 import { NAlert, NButton, NForm, NFormItem, NInput, NSpace, NText, useMessage } from 'naive-ui'
 import { computed, onBeforeUnmount, reactive, shallowRef } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+
+useHead({ title: '注册 — XLNetAccount' })
 
 import { register, sendRegisterCode } from '@/api/auth'
 import { ApiError } from '@/api/http'

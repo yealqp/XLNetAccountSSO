@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useHead } from '@unhead/vue'
 import {
   NAlert,
   NButton,
@@ -13,6 +14,8 @@ import {
 } from 'naive-ui'
 import { computed, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+
+useHead({ title: '授权确认 — XLNetAccount' })
 
 import { ApiError } from '@/api/http'
 import { decideAuthorization, previewAuthorization } from '@/api/oauth'

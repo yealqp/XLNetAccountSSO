@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { useHead } from '@unhead/vue'
 import { NAlert, NAvatar, NButton, NCard, NForm, NFormItem, NInput, NSpace, NSwitch, NText, NUpload, useMessage } from 'naive-ui'
 import type { UploadCustomRequestOptions } from 'naive-ui'
 import { computed, onBeforeUnmount, onMounted, reactive, shallowRef } from 'vue'
+
+useHead({ title: '系统设置 — XLNetAccount' })
 
 import { ApiError } from '@/api/http'
 import { sendTestEmail, uploadWebIcon } from '@/api/settings'

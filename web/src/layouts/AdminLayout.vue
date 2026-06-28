@@ -122,7 +122,7 @@ async function handleNavigate(key: string) {
           <NButton v-if="isMobile" secondary @click="mobileMenuOpen = true">
             菜单
           </NButton>
-          <NTag size="small" round type="info">{{ sessionStore.user?.role ?? 'user' }}</NTag>
+          <NTag size="small" round type="info">/{{ sessionStore.user?.role ?? 'user' }}</NTag>
           <NText depth="3">{{ sessionStore.user?.username }}</NText>
           <NButton tertiary type="error" @click="handleLogout">
             退出
@@ -176,8 +176,8 @@ async function handleNavigate(key: string) {
 .sider-brand {
   display: flex;
   align-items: center;
-  height: 56px;
-  padding: 0 20px;
+  height: 48px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--color-hairline);
 }
 
@@ -193,9 +193,9 @@ async function handleNavigate(key: string) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  height: 56px;
-  padding: 0 20px;
+  gap: 12px;
+  height: 48px;
+  padding: 0 16px;
 }
 
 .header-spacer {
@@ -207,9 +207,9 @@ async function handleNavigate(key: string) {
 }
 
 .content-body {
-  height: calc(100vh - 56px);
-  height: calc(100dvh - 56px);
-  padding: 24px 28px 28px;
+  height: calc(100vh - 48px);
+  height: calc(100dvh - 48px);
+  padding: 16px 20px 20px;
   overflow: auto;
 }
 
@@ -247,14 +247,14 @@ async function handleNavigate(key: string) {
   .admin-header {
     align-items: flex-start;
     height: auto;
-    min-height: 56px;
-    padding: 12px 16px;
+    min-height: 48px;
+    padding: 10px 12px;
   }
 
   .content-body {
-    height: calc(100vh - 56px);
-    height: calc(100dvh - 56px);
-    padding: 16px;
+    height: calc(100vh - 48px);
+    height: calc(100dvh - 48px);
+    padding: 12px;
   }
 }
 </style>
