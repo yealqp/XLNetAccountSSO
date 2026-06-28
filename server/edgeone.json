@@ -1,8 +1,0 @@
-{
-  "buildCommand": "go build -o sso ./cloud-functions/",
-  "cloudFunctions": {
-    "go": {
-      "maxDuration": 30
-    }
-  }
-}
