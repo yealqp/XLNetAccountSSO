@@ -143,7 +143,7 @@ function getQueryValue(key: string) {
 <template>
   <div class="auth-panel-view">
     <Spin :loading="isLoading">
-      <Space v-if="preview" vertical :size="16">
+      <div v-if="preview" class="auth-scope-body">
         <div class="client-hero">
           <p class="auth-panel-kicker">授权确认</p>
           <img
@@ -166,24 +166,22 @@ function getQueryValue(key: string) {
 
         <Divider style="margin: 0;" />
 
-        <div>
-          <Space align="center" justify="space-between" wrap>
+        <div class="scope-section">
+          <Space align="center" justify="space-between" wrap fill>
             <Text strong>请求的 Scope</Text>
             <Tag round type="info">{{ scopeItems.length }}</Tag>
           </Space>
 
           <div class="scope-grid">
             <Card v-for="scope in scopeItems" :key="scope.key" size="small" embedded>
-              <Space vertical :size="6">
-                <Space align="center" wrap>
-                  <Tag size="small" type="info" round>{{ scope.label }}</Tag>
-                </Space>
-                <Text depth="3">{{ scope.description }}</Text>
-              </Space>
+              <div class="scope-card-body">
+                <Tag size="small" type="info" round>{{ scope.label }}</Tag>
+                <Text class="scope-desc-text">{{ scope.description }}</Text>
+              </div>
             </Card>
           </div>
 
-          <Text depth="3" class="scope-hint">{{ consentHint }}</Text>
+          <Text class="scope-hint-text">{{ consentHint }}</Text>
         </div>
 
         <Result
@@ -193,15 +191,17 @@ function getQueryValue(key: string) {
           description="请返回客户端检查授权参数。"
         />
 
-        <Space justify="end" :vertical="actionsVertical" :size="12" class="action-row">
-          <Button :disabled="isSubmitting" :block="isMobile" @click="handleDecision(false)">
-            拒绝
-          </Button>
-          <Button type="primary" :block="isMobile" :loading="isSubmitting" @click="handleDecision(true)">
-            同意
-          </Button>
-        </Space>
-      </Space>
+        <div class="action-row">
+          <Space justify="end" :vertical="actionsVertical" :size="12" fill>
+            <Button :disabled="isSubmitting" :block="isMobile" @click="handleDecision(false)">
+              拒绝
+            </Button>
+            <Button type="primary" :block="isMobile" :loading="isSubmitting" @click="handleDecision(true)">
+              同意
+            </Button>
+          </Space>
+        </div>
+      </div>
     </Spin>
   </div>
 </template>
@@ -220,12 +220,17 @@ function getQueryValue(key: string) {
   text-transform: uppercase;
 }
 
-.scope-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 12px;
+/* ── body ── */
+
+.auth-scope-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  width: 100%;
 }
+
+/* ── hero ── */
 
 .client-hero {
   display: flex;
@@ -276,24 +281,49 @@ function getQueryValue(key: string) {
   line-height: 1.65;
 }
 
+/* ── scope section ── */
+
+.scope-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.scope-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.scope-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.scope-desc-text {
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.scope-hint-text {
+  display: block;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-charcoal);
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* ── actions ── */
+
 .action-row {
   width: 100%;
-}
-
-.mono {
-  overflow-wrap: anywhere;
-}
-
-.redirect-uri {
-  display: inline-block;
-  max-width: 100%;
-  word-break: break-all;
-}
-
-.scope-hint {
-  display: block;
-  margin-top: 12px;
-  line-height: 1.7;
+  min-width: 0;
 }
 
 @media (max-width: 720px) {
