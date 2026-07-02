@@ -61,7 +61,7 @@ const menuOptions = computed<MenuOption[]>(() => {
         { label: '概览', key: 'overview', icon: LayoutDashboard },
         { label: '应用', key: 'applications', icon: AppWindow },
         { label: '令牌', key: 'tokens', icon: WalletCards },
-        { label: '普通设置', key: 'settings', icon: Settings },
+        { label: '用户中心', key: 'settings', icon: Settings },
         { label: '连接信息', key: 'connection-info', icon: Link2 },
       ],
     },

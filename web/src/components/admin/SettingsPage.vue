@@ -2,8 +2,9 @@
 import { useHead } from '@unhead/vue'
 import { Alert, Button, Card, Form, FormItem, Grid, GridItem, Input, Message, Popconfirm, Space, Spin, TypographyText as Text } from '@arco-design/web-vue'
 import { computed, onBeforeUnmount, onMounted, reactive, shallowRef } from 'vue'
+import { useRoute } from 'vue-router'
 
-useHead({ title: '普通设置 — XLNetAccount' })
+useHead({ title: '用户中心 — XLNetAccount' })
 
 import { sendProfilePasswordCode, updateProfile } from '@/api/auth'
 import { ApiError } from '@/api/http'
@@ -12,8 +13,10 @@ import { disableTOTP, fetchTOTPStatus, startTOTPSetup, verifyTOTPSetup } from '@
 import { useSessionStore } from '@/stores/session'
 import type { PasskeyRecord } from '@/types/api'
 import { createPasskeyCredential, describePasskeyError, getPasskeySupportMessage } from '@/utils/webauthn'
+import { fetchOAuthBindings, unlinkOAuthBinding, getOAuthBindUrl, type OAuthBindingRecord } from '@/api/oauth-binding'
 
 const sessionStore = useSessionStore()
+const route = useRoute()
 
 const isSavingProfile = shallowRef(false)
 const isSendingProfileCode = shallowRef(false)
@@ -49,6 +52,16 @@ const totpSetupCode = shallowRef('')
 const totpSetupError = shallowRef('')
 const totpError = shallowRef('')
 
+const oauthBindings = shallowRef<OAuthBindingRecord[]>([])
+const isLoadingBindings = shallowRef(false)
+const unlinkingId = shallowRef('')
+
+const oauthProviders = [
+	{ id: 'microsoft', label: 'Microsoft' },
+	{ id: 'google', label: 'Google' },
+	{ id: 'github', label: 'GitHub' },
+]
+
 const profilePasswordChecks = computed(() => {
   const password = profileState.password
   if (!password) {
@@ -69,6 +82,20 @@ onMounted(() => {
   profileState.email = sessionStore.user?.email ?? ''
   void loadPasskeys()
   void loadTOTPStatus()
+  void loadOAuthBindings()
+
+  // Handle OAuth bind callback result
+  if (route.query.oauth_bind_success) {
+    Message.success('已绑定 ' + route.query.oauth_bind_success + ' 账号')
+    void loadOAuthBindings()
+  } else if (route.query.oauth_bind_error) {
+    const msg = {
+      already_bound: '该第三方账号已被其他用户绑定',
+      already_bound_to_user: '已绑定过该类型的账号',
+      link_failed: '绑定失败，请重试',
+    }[route.query.oauth_bind_error as string] || '绑定失败'
+    Message.error(msg)
+  }
 })
 
 onBeforeUnmount(() => {
@@ -197,6 +224,39 @@ function formatPasskeyTime(value: string | null) {
   return date.toLocaleString('zh-CN', { hour12: false })
 }
 
+async function loadOAuthBindings() {
+  isLoadingBindings.value = true
+  try {
+    const res = await fetchOAuthBindings()
+    oauthBindings.value = res.items
+  } catch (error) {
+    // silently fail
+  } finally {
+    isLoadingBindings.value = false
+  }
+}
+
+async function handleUnlinkOAuth(id: string) {
+  unlinkingId.value = id
+  try {
+    await unlinkOAuthBinding(id)
+    oauthBindings.value = oauthBindings.value.filter(b => b.id !== id)
+    Message.success('已解绑')
+  } catch (error) {
+    Message.error(error instanceof ApiError ? error.message : '解绑失败')
+  } finally {
+    unlinkingId.value = ''
+  }
+}
+
+function isBound(provider: string) {
+  return oauthBindings.value.some(b => b.provider === provider)
+}
+
+function getBinding(provider: string) {
+  return oauthBindings.value.find(b => b.provider === provider)
+}
+
 async function loadTOTPStatus() {
   isLoadingTOTPStatus.value = true
   totpError.value = ''
@@ -322,8 +382,8 @@ async function copyText(text: string) {
   <section class="page-stack">
     <header class="page-header">
       <div>
-        <h1 class="page-title">普通设置</h1>
-        <p class="page-subtitle">修改当前账号信息。</p>
+        <h1 class="page-title">用户中心</h1>
+        <p class="page-subtitle">管理个人信息、通行密钥与安全设置。</p>
       </div>
     </header>
 
@@ -480,6 +540,35 @@ async function copyText(text: string) {
           </div>
         </Card>
       </GridItem>
+      <GridItem>
+        <Card title="第三方账号绑定" size="small">
+          <div class="card-body">
+            <Text type="secondary">绑定后可用第三方账号快速登录。</Text>
+            <Spin :loading="isLoadingBindings">
+              <div class="oauth-bind-list">
+                <div v-for="p in oauthProviders" :key="p.id" class="oauth-bind-item">
+                  <span class="oauth-bind-label">{{ p.label }}</span>
+                  <template v-if="isBound(p.id)">
+                    <Text type="success" class="oauth-bind-status">已绑定 {{ getBinding(p.id)?.name || '' }}</Text>
+                    <Popconfirm @ok="handleUnlinkOAuth(getBinding(p.id)!.id)">
+                      <Button size="mini" type="text" status="danger" :loading="unlinkingId === getBinding(p.id)?.id">
+                        解绑
+                      </Button>
+                      <template #content>
+                        解绑后该第三方账号将无法使用此方式登录。
+                      </template>
+                    </Popconfirm>
+                  </template>
+                  <template v-else>
+                    <Text type="secondary" class="oauth-bind-status">未绑定</Text>
+                    <a :href="getOAuthBindUrl(p.id)" class="oauth-bind-btn">绑定</a>
+                  </template>
+                </div>
+              </div>
+            </Spin>
+          </div>
+        </Card>
+      </GridItem>
     </Grid>
   </section>
 </template>
@@ -619,6 +708,45 @@ async function copyText(text: string) {
   border-radius: 50%;
   background: var(--color-accent-green);
   flex-shrink: 0;
+}
+
+.oauth-bind-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.oauth-bind-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.oauth-bind-label {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--color-ink);
+  min-width: 72px;
+}
+
+.oauth-bind-status {
+  flex: 1;
+  font-size: 12px;
+}
+
+.oauth-bind-btn {
+  font-size: 12px;
+  color: var(--color-accent-blue);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.oauth-bind-btn:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 720px) {

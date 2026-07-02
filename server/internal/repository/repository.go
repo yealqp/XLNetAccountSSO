@@ -66,7 +66,7 @@ func (store *Store) CountUsers(ctx context.Context) (int64, error) {
 
 func (store *Store) ListUsers(ctx context.Context) ([]model.User, error) {
 	var users []model.User
-	err := store.db.WithContext(ctx).Order("created_at desc").Find(&users).Error
+	err := store.db.WithContext(ctx).Order("id asc").Find(&users).Error
 	return users, err
 }
 
@@ -482,6 +482,15 @@ func (store *Store) FindOAuthLinkedAccount(ctx context.Context, provider string,
 func (store *Store) FindOAuthLinkedAccountByUser(ctx context.Context, provider string, userID uint) (*model.OAuthLinkedAccount, error) {
 	var account model.OAuthLinkedAccount
 	err := store.db.WithContext(ctx).Where("provider = ? AND user_id = ?", provider, userID).First(&account).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &account, err
+}
+
+func (store *Store) FindOAuthLinkedAccountByID(ctx context.Context, id string) (*model.OAuthLinkedAccount, error) {
+	var account model.OAuthLinkedAccount
+	err := store.db.WithContext(ctx).Where("id = ?", id).First(&account).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}

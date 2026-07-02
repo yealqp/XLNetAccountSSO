@@ -83,6 +83,11 @@ function isCurrentUser(user: UserRecord) {
     <Card>
       <Table :data="users" stripe row-key="id">
         <template #columns>
+          <TableColumn data-index="id" title="ID" :width="80">
+            <template #cell="{ record }">
+              <span class="mono">{{ record.id }}</span>
+            </template>
+          </TableColumn>
           <TableColumn data-index="username" title="用户名">
             <template #cell="{ record }">
               <span class="mono">{{ record.username }}</span>

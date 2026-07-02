@@ -86,5 +86,9 @@ func ResolveAuthToken(c *fiber.Ctx) string {
 	if authorization != "" && strings.HasPrefix(strings.ToLower(authorization), "bearer ") {
 		return strings.TrimSpace(authorization[7:])
 	}
+	// Fallback: query parameter token (for OAuth bind redirects)
+	if token := strings.TrimSpace(c.Query("token")); token != "" {
+		return token
+	}
 	return ""
 }

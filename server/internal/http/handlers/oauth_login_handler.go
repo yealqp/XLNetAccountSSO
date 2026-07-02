@@ -4,11 +4,15 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/XianLinNet/XLNetAccount/internal/config"
+	"github.com/XianLinNet/XLNetAccount/internal/http/middleware"
+	"github.com/XianLinNet/XLNetAccount/internal/model"
+	"github.com/XianLinNet/XLNetAccount/internal/pkg/security"
 	"github.com/XianLinNet/XLNetAccount/internal/service"
 	"github.com/gofiber/fiber/v2"
 )
@@ -22,14 +26,17 @@ func NewOAuthLoginHandler(oauthLoginService *service.OAuthLoginService, cfg conf
 	return &OAuthLoginHandler{oauthLoginService: oauthLoginService, cfg: cfg}
 }
 
-// stateTTL is how long an OAuth state nonce is valid.
 const stateTTL = 10 * time.Minute
 
-// in-memory state store (single-instance only; for production use redis/db)
+type stateEntry struct {
+	expiresAt time.Time
+	binding   bool // true = linking to existing user, false = login flow
+}
+
 var oauthStates = struct {
-	m map[string]time.Time
+	m map[string]stateEntry
 }{
-	m: make(map[string]time.Time),
+	m: make(map[string]stateEntry),
 }
 
 func init() {
@@ -38,7 +45,7 @@ func init() {
 			time.Sleep(5 * time.Minute)
 			now := time.Now()
 			for k, v := range oauthStates.m {
-				if now.After(v) {
+				if now.After(v.expiresAt) {
 					delete(oauthStates.m, k)
 				}
 			}
@@ -46,27 +53,26 @@ func init() {
 	}()
 }
 
-func generateState() string {
+func generateState(binding bool) string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
 	state := hex.EncodeToString(b)
-	oauthStates.m[state] = time.Now().Add(stateTTL)
+	oauthStates.m[state] = stateEntry{expiresAt: time.Now().Add(stateTTL), binding: binding}
 	return state
 }
 
-func isValidState(state string) bool {
-	expiry, ok := oauthStates.m[state]
+func consumeState(state string) (stateEntry, bool) {
+	entry, ok := oauthStates.m[state]
 	if !ok {
-		return false
+		return stateEntry{}, false
 	}
 	delete(oauthStates.m, state)
-	return time.Now().Before(expiry)
+	return entry, true
 }
 
-// OAuthLogin redirects the user to the provider's OAuth consent page.
 func (h *OAuthLoginHandler) OAuthLogin(c *fiber.Ctx) error {
 	provider := service.OAuthProvider(strings.TrimSpace(c.Params("provider")))
-	state := generateState()
+	state := generateState(false)
 
 	authURL, err := h.oauthLoginService.AuthorizeURL(provider, state)
 	if err != nil {
@@ -76,11 +82,27 @@ func (h *OAuthLoginHandler) OAuthLogin(c *fiber.Ctx) error {
 	return c.Redirect(authURL, fiber.StatusFound)
 }
 
-// OAuthCallback handles the OAuth provider's callback, exchanges the code, and logs the user in.
+func (h *OAuthLoginHandler) OAuthBind(c *fiber.Ctx) error {
+	_, err := middleware.CurrentAuthContext(c)
+	if err != nil {
+		return writeError(c, fiber.StatusUnauthorized, "authentication required")
+	}
+
+	provider := service.OAuthProvider(strings.TrimSpace(c.Params("provider")))
+	state := generateState(true)
+
+	authURL, err := h.oauthLoginService.AuthorizeURL(provider, state)
+	if err != nil {
+		return writeError(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	return c.Redirect(authURL, fiber.StatusFound)
+}
+
 func (h *OAuthLoginHandler) OAuthCallback(c *fiber.Ctx) error {
 	provider := service.OAuthProvider(strings.TrimSpace(c.Params("provider")))
 	code := strings.TrimSpace(c.Query("code"))
-	state := strings.TrimSpace(c.Query("state"))
+	stateStr := strings.TrimSpace(c.Query("state"))
 	errorParam := strings.TrimSpace(c.Query("error"))
 
 	if errorParam != "" {
@@ -91,7 +113,8 @@ func (h *OAuthLoginHandler) OAuthCallback(c *fiber.Ctx) error {
 		return c.Redirect(h.cfg.WebBaseURL+"/auth/login?oauth_error="+errorParam, fiber.StatusFound)
 	}
 
-	if code == "" || !isValidState(state) {
+	state, ok := consumeState(stateStr)
+	if code == "" || !ok || time.Now().After(state.expiresAt) {
 		slog.Warn("oauth callback: invalid code or state",
 			slog.String("provider", string(provider)),
 		)
@@ -107,12 +130,22 @@ func (h *OAuthLoginHandler) OAuthCallback(c *fiber.Ctx) error {
 		return c.Redirect(h.cfg.WebBaseURL+"/auth/login?oauth_error=exchange_failed", fiber.StatusFound)
 	}
 
+	if state.binding {
+		return h.handleBindCallback(c, provider, info)
+	}
+	return h.handleLoginCallback(c, provider, info)
+}
+
+func (h *OAuthLoginHandler) handleLoginCallback(c *fiber.Ctx, provider service.OAuthProvider, info *service.OAuthUserInfo) error {
 	user, rawToken, _, err := h.oauthLoginService.FindOrCreateUser(context.Background(), provider, info)
 	if err != nil {
-		slog.Error("oauth find or create user failed",
+		slog.Error("oauth login failed",
 			slog.String("provider", string(provider)),
 			slog.String("error", err.Error()),
 		)
+		if errors.Is(err, service.ErrNotFound) {
+			return c.Redirect(h.cfg.WebBaseURL+"/auth/login?oauth_error=not_found", fiber.StatusFound)
+		}
 		return c.Redirect(h.cfg.WebBaseURL+"/auth/login?oauth_error=login_failed", fiber.StatusFound)
 	}
 
@@ -123,7 +156,75 @@ func (h *OAuthLoginHandler) OAuthCallback(c *fiber.Ctx) error {
 		slog.String("ip", c.IP()),
 	)
 
-	// Redirect to frontend with session token in query (frontend picks it up)
-	target := h.cfg.WebBaseURL + "/auth/login?oauth_token=" + rawToken + "&oauth_user=" + user.Username
+	target := h.cfg.WebBaseURL + "/auth/login?oauth_token=" + rawToken
 	return c.Redirect(target, fiber.StatusFound)
+}
+
+func (h *OAuthLoginHandler) handleBindCallback(c *fiber.Ctx, provider service.OAuthProvider, info *service.OAuthUserInfo) error {
+	authCtx, err := middleware.CurrentAuthContext(c)
+	if err != nil {
+		return c.Redirect(h.cfg.WebBaseURL+"/auth/login?oauth_error=auth_required", fiber.StatusFound)
+	}
+
+	// Check if already bound to another user
+	existing, _ := h.oauthLoginService.FindLinkedAccount(context.Background(), provider, info.ID)
+	if existing != nil {
+		return c.Redirect(h.cfg.WebBaseURL+"/settings?oauth_bind_error=already_bound", fiber.StatusFound)
+	}
+
+	// Check if already bound to this user
+	existing, _ = h.oauthLoginService.FindLinkedAccountByUser(context.Background(), provider, authCtx.User.ID)
+	if existing != nil {
+		return c.Redirect(h.cfg.WebBaseURL+"/settings?oauth_bind_error=already_bound_to_user", fiber.StatusFound)
+	}
+
+	link := &model.OAuthLinkedAccount{
+		ID:             security.NewID(),
+		UserID:         authCtx.User.ID,
+		Provider:       string(provider),
+		ProviderUserID: info.ID,
+		Email:          info.Email,
+		Name:           info.Name,
+	}
+	if err := h.oauthLoginService.LinkAccount(context.Background(), link); err != nil {
+		slog.Error("oauth bind failed",
+			slog.String("provider", string(provider)),
+			slog.String("error", err.Error()),
+		)
+		return c.Redirect(h.cfg.WebBaseURL+"/settings?oauth_bind_error=link_failed", fiber.StatusFound)
+	}
+
+	slog.Info("oauth bind success",
+		slog.String("provider", string(provider)),
+		slog.Uint64("user_id", uint64(authCtx.User.ID)),
+	)
+	return c.Redirect(h.cfg.WebBaseURL+"/settings?oauth_bind_success="+string(provider), fiber.StatusFound)
+}
+
+func (h *OAuthLoginHandler) ListBindings(c *fiber.Ctx) error {
+	authCtx, err := middleware.CurrentAuthContext(c)
+	if err != nil {
+		return writeError(c, fiber.StatusUnauthorized, "authentication required")
+	}
+
+	accounts, err := h.oauthLoginService.ListAccounts(context.Background(), authCtx.User.ID)
+	if err != nil {
+		return writeError(c, fiber.StatusInternalServerError, "load bindings failed")
+	}
+
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{"items": accounts}, "success")
+}
+
+func (h *OAuthLoginHandler) UnlinkBinding(c *fiber.Ctx) error {
+	authCtx, err := middleware.CurrentAuthContext(c)
+	if err != nil {
+		return writeError(c, fiber.StatusUnauthorized, "authentication required")
+	}
+
+	id := c.Params("id")
+	if err := h.oauthLoginService.UnlinkAccount(context.Background(), id, authCtx.User.ID); err != nil {
+		return writeError(c, fiber.StatusBadRequest, err.Error())
+	}
+
+	return writeSuccess(c, fiber.StatusOK, fiber.Map{}, "success")
 }

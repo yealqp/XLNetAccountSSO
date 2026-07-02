@@ -101,7 +101,8 @@ func (s *OAuthLoginService) ExchangeCode(ctx context.Context, provider OAuthProv
 	return fetchOAuthUserInfo(userInfoURL, token, provider)
 }
 
-// FindOrCreateUser looks up or creates a user linked to an OAuth provider account.
+// FindOrCreateUser finds an existing linked account or matches by email.
+// Returns ErrNotFound when no matching user is found (user should register first).
 func (s *OAuthLoginService) FindOrCreateUser(ctx context.Context, provider OAuthProvider, info *OAuthUserInfo) (*model.User, string, *model.UserSession, error) {
 	linked, err := s.store.FindOAuthLinkedAccount(ctx, string(provider), info.ID)
 	if err != nil {
@@ -120,22 +121,7 @@ func (s *OAuthLoginService) FindOrCreateUser(ctx context.Context, provider OAuth
 			user, _ = s.store.FindUserByEmail(ctx, info.Email)
 		}
 		if user == nil {
-			username := info.Name
-			if username == "" {
-				username = fmt.Sprintf("%s_%s", provider, info.ID)
-			}
-			username = sanitizeUsername(username)
-			pwHash, _ := security.HashPassword(security.NewID())
-			user = &model.User{
-				Username:     username,
-				PasswordHash: pwHash,
-				Email:        info.Email,
-				Role:         "user",
-				Status:       "active",
-			}
-			if err := s.store.CreateUser(ctx, user); err != nil {
-				return nil, "", nil, err
-			}
+			return nil, "", nil, ErrNotFound
 		}
 		linked = &model.OAuthLinkedAccount{
 			ID:             security.NewID(),
@@ -162,6 +148,30 @@ func (s *OAuthLoginService) FindOrCreateUser(ctx context.Context, provider OAuth
 	}
 
 	return user, rawToken, session, nil
+}
+
+func (s *OAuthLoginService) FindLinkedAccount(ctx context.Context, provider OAuthProvider, providerUserID string) (*model.OAuthLinkedAccount, error) {
+	return s.store.FindOAuthLinkedAccount(ctx, string(provider), providerUserID)
+}
+
+func (s *OAuthLoginService) FindLinkedAccountByUser(ctx context.Context, provider OAuthProvider, userID uint) (*model.OAuthLinkedAccount, error) {
+	return s.store.FindOAuthLinkedAccountByUser(ctx, string(provider), userID)
+}
+
+func (s *OAuthLoginService) LinkAccount(ctx context.Context, account *model.OAuthLinkedAccount) error {
+	return s.store.CreateOAuthLinkedAccount(ctx, account)
+}
+
+func (s *OAuthLoginService) ListAccounts(ctx context.Context, userID uint) ([]model.OAuthLinkedAccount, error) {
+	return s.store.ListOAuthLinkedAccounts(ctx, userID)
+}
+
+func (s *OAuthLoginService) UnlinkAccount(ctx context.Context, id string, userID uint) error {
+	account, err := s.store.FindOAuthLinkedAccountByID(ctx, id)
+	if err != nil || account == nil || account.UserID != userID {
+		return fmt.Errorf("%w: account not found", ErrNotFound)
+	}
+	return s.store.DeleteOAuthLinkedAccount(ctx, id)
 }
 
 type OAuthUserInfo struct {
@@ -210,7 +220,7 @@ func fetchOAuthUserInfo(userInfoURL, accessToken string, provider OAuthProvider)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Authorization", "Bearer " + accessToken)
 	if provider == OAuthGitHub {
 		req.Header.Set("Accept", "application/vnd.github.v3+json")
 	}
@@ -263,9 +273,48 @@ func fetchOAuthUserInfo(userInfoURL, accessToken string, provider OAuthProvider)
 		if name == "" {
 			name = info.Login
 		}
-		return &OAuthUserInfo{ID: fmt.Sprintf("%d", info.ID), Email: info.Email, Name: name}, nil
+		email := info.Email
+		if email == "" {
+			// 邮箱未公开，调用 /user/emails 获取主邮箱
+			email = fetchGitHubPrimaryEmail(accessToken)
+		}
+		return &OAuthUserInfo{ID: fmt.Sprintf("%d", info.ID), Email: email, Name: name}, nil
 	}
 	return nil, fmt.Errorf("%w: unknown provider", ErrInvalidInput)
+}
+
+func fetchGitHubPrimaryEmail(accessToken string) string {
+	type ghEmail struct {
+		Email    string `json:"email"`
+		Primary  bool   `json:"primary"`
+		Verified bool   `json:"verified"`
+	}
+	req, _ := http.NewRequest(http.MethodGet, "https://api.github.com/user/emails", nil)
+	if req == nil {
+		return ""
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	var emails []ghEmail
+	if err := json.NewDecoder(resp.Body).Decode(&emails); err != nil {
+		return ""
+	}
+	for _, e := range emails {
+		if e.Primary && e.Verified {
+			return e.Email
+		}
+	}
+	if len(emails) > 0 {
+		return emails[0].Email
+	}
+	return ""
 }
 
 func sanitizeUsername(name string) string {

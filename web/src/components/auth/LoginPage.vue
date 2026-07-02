@@ -45,7 +45,15 @@ const oauthProviders = [
 
 onMounted(() => {
 	const token = route.query.oauth_token as string | undefined
-	if (token) {
+	const error = route.query.oauth_error as string | undefined
+
+	if (error === 'not_found') {
+		Message.error('该第三方账号未绑定任何用户，请先注册账号，然后在用户中心中绑定。')
+		router.replace({ query: { ...route.query, oauth_error: undefined, oauth_token: undefined, oauth_user: undefined } })
+	} else if (error) {
+		Message.error('第三方登录失败，请重试。')
+		router.replace({ query: { ...route.query, oauth_error: undefined } })
+	} else if (token) {
 		import('@/utils/authToken').then(({ setAuthToken }) => {
 			setAuthToken(token)
 			sessionStore.syncSession().then(() => {

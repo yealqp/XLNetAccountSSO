@@ -114,6 +114,9 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 
 	secured := api.Group("", middleware.RequireSession(authService))
 	secured.Get("/me", adminHandler.Me)
+	secured.Get("/me/oauth/accounts", oauthLoginHandler.ListBindings)
+	secured.Post("/me/oauth/:id/unlink", oauthLoginHandler.UnlinkBinding)
+	secured.Get("/me/oauth/:provider/link", oauthLoginHandler.OAuthBind)
 	secured.Post("/me/password/code/send", authHandler.SendProfilePasswordCode)
 	secured.Post("/me/profile", authHandler.UpdateProfile)
 	secured.Get("/me/passkeys", authHandler.ListPasskeys)

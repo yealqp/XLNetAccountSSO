@@ -6,6 +6,7 @@ dist/
 coverage/
 .claude/
 scripts/
+tmp/
 .env
 .env.local
 .env.*.local
