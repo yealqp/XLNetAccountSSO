@@ -30,7 +30,8 @@ const stateTTL = 10 * time.Minute
 
 type stateEntry struct {
 	expiresAt time.Time
-	binding   bool // true = linking to existing user, false = login flow
+	binding   bool   // true = linking to existing user, false = login flow
+	token     string // session token for binding auth
 }
 
 var oauthStates = struct {
@@ -53,11 +54,15 @@ func init() {
 	}()
 }
 
-func generateState(binding bool) string {
+func generateState(binding bool, token ...string) string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
 	state := hex.EncodeToString(b)
-	oauthStates.m[state] = stateEntry{expiresAt: time.Now().Add(stateTTL), binding: binding}
+	tok := ""
+	if len(token) > 0 {
+		tok = token[0]
+	}
+	oauthStates.m[state] = stateEntry{expiresAt: time.Now().Add(stateTTL), binding: binding, token: tok}
 	return state
 }
 
@@ -83,13 +88,13 @@ func (h *OAuthLoginHandler) OAuthLogin(c *fiber.Ctx) error {
 }
 
 func (h *OAuthLoginHandler) OAuthBind(c *fiber.Ctx) error {
-	_, err := middleware.CurrentAuthContext(c)
+	authCtx, err := middleware.CurrentAuthContext(c)
 	if err != nil {
 		return writeError(c, fiber.StatusUnauthorized, "authentication required")
 	}
 
 	provider := service.OAuthProvider(strings.TrimSpace(c.Params("provider")))
-	state := generateState(true)
+	state := generateState(true, authCtx.Token)
 
 	authURL, err := h.oauthLoginService.AuthorizeURL(provider, state)
 	if err != nil {
@@ -131,7 +136,7 @@ func (h *OAuthLoginHandler) OAuthCallback(c *fiber.Ctx) error {
 	}
 
 	if state.binding {
-		return h.handleBindCallback(c, provider, info)
+		return h.handleBindCallback(c, provider, info, state.token)
 	}
 	return h.handleLoginCallback(c, provider, info)
 }
@@ -160,27 +165,27 @@ func (h *OAuthLoginHandler) handleLoginCallback(c *fiber.Ctx, provider service.O
 	return c.Redirect(target, fiber.StatusFound)
 }
 
-func (h *OAuthLoginHandler) handleBindCallback(c *fiber.Ctx, provider service.OAuthProvider, info *service.OAuthUserInfo) error {
-	authCtx, err := middleware.CurrentAuthContext(c)
-	if err != nil {
+func (h *OAuthLoginHandler) handleBindCallback(c *fiber.Ctx, provider service.OAuthProvider, info *service.OAuthUserInfo, bindToken string) error {
+	bindUser, _, err := h.oauthLoginService.ResolveSession(context.Background(), bindToken)
+	if err != nil || bindUser == nil {
 		return c.Redirect(h.cfg.WebBaseURL+"/auth/login?oauth_error=auth_required", fiber.StatusFound)
 	}
 
 	// Check if already bound to another user
 	existing, _ := h.oauthLoginService.FindLinkedAccount(context.Background(), provider, info.ID)
 	if existing != nil {
-		return c.Redirect(h.cfg.WebBaseURL+"/settings?oauth_bind_error=already_bound", fiber.StatusFound)
+		return c.Redirect(h.cfg.WebBaseURL+"/dashboard/settings?oauth_bind_error=already_bound", fiber.StatusFound)
 	}
 
 	// Check if already bound to this user
-	existing, _ = h.oauthLoginService.FindLinkedAccountByUser(context.Background(), provider, authCtx.User.ID)
+	existing, _ = h.oauthLoginService.FindLinkedAccountByUser(context.Background(), provider, bindUser.ID)
 	if existing != nil {
-		return c.Redirect(h.cfg.WebBaseURL+"/settings?oauth_bind_error=already_bound_to_user", fiber.StatusFound)
+		return c.Redirect(h.cfg.WebBaseURL+"/dashboard/settings?oauth_bind_error=already_bound_to_user", fiber.StatusFound)
 	}
 
 	link := &model.OAuthLinkedAccount{
 		ID:             security.NewID(),
-		UserID:         authCtx.User.ID,
+		UserID:         bindUser.ID,
 		Provider:       string(provider),
 		ProviderUserID: info.ID,
 		Email:          info.Email,
@@ -191,14 +196,14 @@ func (h *OAuthLoginHandler) handleBindCallback(c *fiber.Ctx, provider service.OA
 			slog.String("provider", string(provider)),
 			slog.String("error", err.Error()),
 		)
-		return c.Redirect(h.cfg.WebBaseURL+"/settings?oauth_bind_error=link_failed", fiber.StatusFound)
+		return c.Redirect(h.cfg.WebBaseURL+"/dashboard/settings?oauth_bind_error=link_failed", fiber.StatusFound)
 	}
 
 	slog.Info("oauth bind success",
 		slog.String("provider", string(provider)),
-		slog.Uint64("user_id", uint64(authCtx.User.ID)),
+		slog.Uint64("user_id", uint64(bindUser.ID)),
 	)
-	return c.Redirect(h.cfg.WebBaseURL+"/settings?oauth_bind_success="+string(provider), fiber.StatusFound)
+	return c.Redirect(h.cfg.WebBaseURL+"/dashboard/settings?oauth_bind_success="+string(provider), fiber.StatusFound)
 }
 
 func (h *OAuthLoginHandler) ListBindings(c *fiber.Ctx) error {

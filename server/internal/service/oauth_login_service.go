@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -33,7 +34,6 @@ func NewOAuthLoginService(store *repository.Store, cfg config.Config) *OAuthLogi
 	return &OAuthLoginService{store: store, cfg: cfg}
 }
 
-// ProviderConfig returns OAuth client credentials and endpoints for a provider.
 func (s *OAuthLoginService) ProviderConfig(provider OAuthProvider) (clientID, clientSecret, authURL, tokenURL, userInfoURL, redirectURL string, ok bool) {
 	base := strings.TrimRight(s.cfg.ServerBaseURL, "/")
 	switch provider {
@@ -64,7 +64,6 @@ func (s *OAuthLoginService) ProviderConfig(provider OAuthProvider) (clientID, cl
 	}
 }
 
-// AuthorizeURL builds the redirect URL to the provider's OAuth consent page.
 func (s *OAuthLoginService) AuthorizeURL(provider OAuthProvider, state string) (string, error) {
 	clientID, _, authURL, _, _, redirectURL, ok := s.ProviderConfig(provider)
 	if !ok {
@@ -88,7 +87,6 @@ func (s *OAuthLoginService) AuthorizeURL(provider OAuthProvider, state string) (
 	return authURL + "?" + v.Encode(), nil
 }
 
-// ExchangeCode handles OAuth callback: exchange code → token → fetch user info.
 func (s *OAuthLoginService) ExchangeCode(ctx context.Context, provider OAuthProvider, code string) (*OAuthUserInfo, error) {
 	clientID, clientSecret, _, tokenURL, userInfoURL, redirectURL, ok := s.ProviderConfig(provider)
 	if !ok {
@@ -101,8 +99,6 @@ func (s *OAuthLoginService) ExchangeCode(ctx context.Context, provider OAuthProv
 	return fetchOAuthUserInfo(userInfoURL, token, provider)
 }
 
-// FindOrCreateUser finds an existing linked account or matches by email.
-// Returns ErrNotFound when no matching user is found (user should register first).
 func (s *OAuthLoginService) FindOrCreateUser(ctx context.Context, provider OAuthProvider, info *OAuthUserInfo) (*model.User, string, *model.UserSession, error) {
 	linked, err := s.store.FindOAuthLinkedAccount(ctx, string(provider), info.ID)
 	if err != nil {
@@ -166,6 +162,21 @@ func (s *OAuthLoginService) ListAccounts(ctx context.Context, userID uint) ([]mo
 	return s.store.ListOAuthLinkedAccounts(ctx, userID)
 }
 
+func (s *OAuthLoginService) ResolveSession(ctx context.Context, rawSessionToken string) (*model.User, *model.UserSession, error) {
+	if rawSessionToken == "" {
+		return nil, nil, ErrInvalidSession
+	}
+	session, err := s.store.FindSessionByHash(ctx, security.HashToken(rawSessionToken))
+	if err != nil || session == nil || session.RevokedAt != nil || session.ExpiresAt.Before(time.Now().UTC()) {
+		return nil, nil, ErrInvalidSession
+	}
+	user, err := s.store.FindUserByID(ctx, session.UserID)
+	if err != nil || user == nil {
+		return nil, nil, ErrInvalidSession
+	}
+	return user, session, nil
+}
+
 func (s *OAuthLoginService) UnlinkAccount(ctx context.Context, id string, userID uint) error {
 	account, err := s.store.FindOAuthLinkedAccountByID(ctx, id)
 	if err != nil || account == nil || account.UserID != userID {
@@ -207,7 +218,11 @@ func exchangeOAuthToken(tokenURL, clientID, code, redirectURL, clientSecret stri
 		Error       string `json:"error"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return "", fmt.Errorf("%w: token 响应解析失败", ErrInvalidInput)
+		slog.Warn("token exchange raw response",
+			slog.Int("status", resp.StatusCode),
+			slog.String("body", string(body)),
+		)
+		return "", fmt.Errorf("%w: token 响应解析失败（HTTP %d）", ErrInvalidInput, resp.StatusCode)
 	}
 	if result.Error != "" {
 		return "", fmt.Errorf("%w: token 交换失败（%s）", ErrInvalidInput, result.Error)
@@ -220,7 +235,7 @@ func fetchOAuthUserInfo(userInfoURL, accessToken string, provider OAuthProvider)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer " + accessToken)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 	if provider == OAuthGitHub {
 		req.Header.Set("Accept", "application/vnd.github.v3+json")
 	}
@@ -242,6 +257,10 @@ func fetchOAuthUserInfo(userInfoURL, accessToken string, provider OAuthProvider)
 			DisplayName       string `json:"displayName"`
 		}
 		if err := json.Unmarshal(body, &info); err != nil {
+			slog.Warn("microsoft userinfo raw",
+				slog.Int("status", resp.StatusCode),
+				slog.String("body", string(body)),
+			)
 			return nil, fmt.Errorf("%w: Microsoft 用户信息解析失败", ErrInvalidInput)
 		}
 		email := info.Mail
@@ -275,7 +294,6 @@ func fetchOAuthUserInfo(userInfoURL, accessToken string, provider OAuthProvider)
 		}
 		email := info.Email
 		if email == "" {
-			// 邮箱未公开，调用 /user/emails 获取主邮箱
 			email = fetchGitHubPrimaryEmail(accessToken)
 		}
 		return &OAuthUserInfo{ID: fmt.Sprintf("%d", info.ID), Email: email, Name: name}, nil
