@@ -44,6 +44,8 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	authHandler := handlers.NewAuthHandler(authService, passkeyService, adminService, verificationService, totpService, cfg)
 	adminHandler := handlers.NewAdminHandler(adminService, tokenService)
 	oauthHandler := handlers.NewOAuthHandler(oauthService, cfg)
+	oauthLoginService := service.NewOAuthLoginService(store, cfg)
+	oauthLoginHandler := handlers.NewOAuthLoginHandler(oauthLoginService, cfg)
 
 	app := fiber.New(fiber.Config{
 		AppName: cfg.AppName,
@@ -105,6 +107,10 @@ func Build(cfg config.Config, db *gorm.DB) (*fiber.App, error) {
 	api.Post("/auth/totp/login/verify", authHandler.VerifyTOTPLogin)
 	api.Get("/auth/session", authHandler.Session)
 	api.Get("/settings/public", adminHandler.PublicSettings)
+
+	// OAuth login routes
+	api.Get("/auth/oauth/:provider/login", oauthLoginHandler.OAuthLogin)
+	api.Get("/auth/oauth/:provider/callback", oauthLoginHandler.OAuthCallback)
 
 	secured := api.Group("", middleware.RequireSession(authService))
 	secured.Get("/me", adminHandler.Me)

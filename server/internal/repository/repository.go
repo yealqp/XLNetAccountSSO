@@ -468,6 +468,40 @@ func (store *Store) CreateAuditLog(ctx context.Context, logEntry *model.AuditLog
 	return store.db.WithContext(ctx).Create(logEntry).Error
 }
 
+// ── OAuth Linked Account ──
+
+func (store *Store) FindOAuthLinkedAccount(ctx context.Context, provider string, providerUserID string) (*model.OAuthLinkedAccount, error) {
+	var account model.OAuthLinkedAccount
+	err := store.db.WithContext(ctx).Where("provider = ? AND provider_user_id = ?", provider, providerUserID).First(&account).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &account, err
+}
+
+func (store *Store) FindOAuthLinkedAccountByUser(ctx context.Context, provider string, userID uint) (*model.OAuthLinkedAccount, error) {
+	var account model.OAuthLinkedAccount
+	err := store.db.WithContext(ctx).Where("provider = ? AND user_id = ?", provider, userID).First(&account).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &account, err
+}
+
+func (store *Store) ListOAuthLinkedAccounts(ctx context.Context, userID uint) ([]model.OAuthLinkedAccount, error) {
+	var accounts []model.OAuthLinkedAccount
+	err := store.db.WithContext(ctx).Where("user_id = ?", userID).Find(&accounts).Error
+	return accounts, err
+}
+
+func (store *Store) CreateOAuthLinkedAccount(ctx context.Context, account *model.OAuthLinkedAccount) error {
+	return store.db.WithContext(ctx).Create(account).Error
+}
+
+func (store *Store) DeleteOAuthLinkedAccount(ctx context.Context, id string) error {
+	return store.db.WithContext(ctx).Delete(&model.OAuthLinkedAccount{}, "id = ?", id).Error
+}
+
 type Overview struct {
 	Users          int64 `json:"users"`
 	Clients        int64 `json:"clients"`

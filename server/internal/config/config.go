@@ -30,6 +30,14 @@ type Config struct {
 	CAPAPIEndpoint string
 	CAPSiteKey     string
 	CAPSecretKey   string
+
+	OAuthMicrosoftClientID     string
+	OAuthMicrosoftClientSecret string
+	OAuthMicrosoftTenant       string
+	OAuthGoogleClientID        string
+	OAuthGoogleClientSecret    string
+	OAuthGitHubClientID        string
+	OAuthGitHubClientSecret    string
 }
 
 func Load() Config {
@@ -74,6 +82,14 @@ func Load() Config {
 		CAPAPIEndpoint: getEnv("CAP_API_ENDPOINT", ""),
 		CAPSiteKey:     getEnv("CAP_SITE_KEY", ""),
 		CAPSecretKey:   getEnv("CAP_SECRET_KEY", ""),
+
+		OAuthMicrosoftClientID:     getEnv("OAUTH_MICROSOFT_CLIENT_ID", ""),
+		OAuthMicrosoftClientSecret: getEnv("OAUTH_MICROSOFT_CLIENT_SECRET", ""),
+		OAuthMicrosoftTenant:       getEnv("OAUTH_MICROSOFT_TENANT", "common"),
+		OAuthGoogleClientID:        getEnv("OAUTH_GOOGLE_CLIENT_ID", ""),
+		OAuthGoogleClientSecret:    getEnv("OAUTH_GOOGLE_CLIENT_SECRET", ""),
+		OAuthGitHubClientID:        getEnv("OAUTH_GITHUB_CLIENT_ID", ""),
+		OAuthGitHubClientSecret:    getEnv("OAUTH_GITHUB_CLIENT_SECRET", ""),
 	}
 }
 

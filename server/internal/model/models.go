@@ -152,7 +152,17 @@ type EmailVerificationCode struct {
 	ExpiresAt  time.Time  `gorm:"index;not null" json:"expires_at"`
 	ConsumedAt *time.Time `json:"consumed_at"`
 	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+}
+
+type OAuthLinkedAccount struct {
+	ID             string    `gorm:"primaryKey;size:36" json:"id"`
+	UserID         uint      `gorm:"index;not null" json:"user_id"`
+	Provider       string    `gorm:"size:32;not null;index" json:"provider"`
+	ProviderUserID string    `gorm:"size:255;not null" json:"-"`
+	Email          string    `gorm:"size:160" json:"email"`
+	Name           string    `gorm:"size:160" json:"name"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 func (client OAuthClient) RedirectURIs() []string {

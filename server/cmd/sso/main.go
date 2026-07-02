@@ -50,6 +50,7 @@ func main() {
 		&model.UserTOTP{},
 		&model.AuditLog{},
 		&model.Asset{},
+		&model.OAuthLinkedAccount{},
 	); err != nil {
 		slog.Error("auto migrate schema", "error", err)
 		os.Exit(1)
