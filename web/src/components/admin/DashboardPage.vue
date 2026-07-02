@@ -3,7 +3,7 @@ import { useHead } from '@unhead/vue'
 import { Alert, Button, Card, Descriptions, DescriptionsItem, Grid, GridItem, Message, Space, Tag } from '@arco-design/web-vue'
 import { computed, onMounted, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { AppWindow, Link2, Settings, Shield, WalletCards } from 'lucide-vue-next'
+import { AppWindow, Link2, Settings, Shield, WalletCards } from '@lucide/vue'
 
 useHead({ title: '概览 — XLNetAccount' })
 

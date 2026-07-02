@@ -3,7 +3,7 @@ import { Button } from '@arco-design/web-vue'
 import { useHead } from '@unhead/vue'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
-import { ChevronsDown, Code, Fingerprint, KeyRound, LogIn, QrCode, Shield, ShieldCheck, Users } from 'lucide-vue-next'
+import { ChevronsDown, Code, Fingerprint, KeyRound, LogIn, QrCode, Shield, ShieldCheck, Users } from '@lucide/vue'
 
 import { usePlatformStore } from '@/stores/platform'
 

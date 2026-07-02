@@ -35,7 +35,7 @@ import {
   ShieldUser,
   UserCog,
   WalletCards,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 
 import { useViewport } from '@/composables/useViewport'
 import { usePlatformStore } from '@/stores/platform'
