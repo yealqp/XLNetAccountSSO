@@ -84,17 +84,18 @@ function openSecretDialog(secret: string) {
   Modal.warning({
     title: 'Client Secret',
     content: () => h('div', { style: { display: 'grid', gap: '12px' } }, [
-      h('span', '仅展示一次，请立即保存。'),
-      h('pre', { style: { margin: 0, padding: '12px', border: '1px solid var(--color-hairline)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface-elevated)', color: 'var(--color-ink)', overflow: 'auto' } }, [h('code', secret)]),
+      h('span', '仅展示一次，请立即保存。点击下方密钥即可复制。'),
+      h('pre', {
+        style: { margin: 0, padding: '12px', border: '1px solid var(--color-hairline)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface-elevated)', color: 'var(--color-ink)', overflow: 'auto', cursor: 'pointer', userSelect: 'all' },
+        onClick: () => {
+          navigator.clipboard.writeText(secret).then(
+            () => Message.success('已复制 Client Secret'),
+            () => Message.error('复制失败，请手动复制'),
+          )
+        },
+      }, [h('code', secret)]),
     ]),
     okText: '我已保存',
-    cancelText: '复制',
-    onCancel: () => {
-      navigator.clipboard.writeText(secret).then(
-        () => Message.success('已复制 Client Secret'),
-        () => Message.error('复制失败，请手动复制'),
-      )
-    },
   })
 }
 </script>

@@ -12,7 +12,7 @@ import (
 	"github.com/XianLinNet/XLNetAccount/internal/repository"
 )
 
-const sessionLifetime = 7 * 24 * time.Hour
+const sessionLifetime = 15 * 24 * time.Hour
 
 type SessionMeta struct {
 	IPAddress string

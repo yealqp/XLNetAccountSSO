@@ -67,7 +67,7 @@ func (service *VerificationService) VerifyProfilePasswordCode(ctx context.Contex
 
 func (service *VerificationService) sendCode(ctx context.Context, email string, purpose string, cfg config.Config, captchaToken string, requireCaptcha bool, subject string, bodyBuilder func(string) string) error {
 	if requireCaptcha {
-		if err := verifyCAPTCHA(cfg, captchaToken); err != nil {
+		if err := VerifyCAPTCHA(cfg, captchaToken); err != nil {
 			return err
 		}
 	}
@@ -131,7 +131,7 @@ func (service *VerificationService) registrationAllowed(ctx context.Context) boo
 	return value == "true" || value == "1"
 }
 
-func verifyCAPTCHA(cfg config.Config, token string) error {
+func VerifyCAPTCHA(cfg config.Config, token string) error {
 	endpoint := strings.TrimSpace(cfg.CAPAPIEndpoint)
 	siteKey := strings.Trim(strings.TrimSpace(cfg.CAPSiteKey), "/")
 	secret := strings.TrimSpace(cfg.CAPSecretKey)

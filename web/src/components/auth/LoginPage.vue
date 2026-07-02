@@ -12,6 +12,8 @@ import { usePlatformStore } from '@/stores/platform'
 import { useSessionStore } from '@/stores/session'
 import { buildNextQuery, resolveNextTarget } from '@/utils/authNext'
 import { describePasskeyError, getPasskeyCredential, getPasskeySupportMessage } from '@/utils/webauthn'
+import { solveCaptcha } from '@/utils/captcha'
+import CaptchaCard from '@/components/ui/CaptchaCard.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -29,6 +31,8 @@ const isSubmitting = shallowRef(false)
 const isPasskeySubmitting = shallowRef(false)
 const submitError = shallowRef('')
 const passkeySupportMessage = getPasskeySupportMessage()
+const captchaToken = shallowRef('')
+const capEnabled = computed(() => Boolean(platformStore.capWidgetEndpoint))
 const showTotpStep = shallowRef(false)
 const totpSessionId = shallowRef('')
 const totpCode = shallowRef('')
@@ -39,13 +43,31 @@ const formState = reactive({
 })
 
 async function handleSubmit() {
-  isSubmitting.value = true
   submitError.value = ''
+
+  // 自动完成人机验证
+  if (capEnabled.value && !captchaToken.value) {
+    isSubmitting.value = true
+    Message.loading('正在进行人机验证，请稍候...')
+    try {
+      const token = await solveCaptcha(platformStore.capWidgetEndpoint)
+      captchaToken.value = token
+    } catch (error) {
+      Message.clear()
+      isSubmitting.value = false
+      Message.error(error instanceof Error ? error.message : '人机验证失败，请重试')
+      return
+    }
+    Message.clear()
+  }
+
+  isSubmitting.value = true
 
   try {
     const result = await sessionStore.signIn({
       username: formState.username,
       password: formState.password,
+      captcha_token: captchaToken.value || undefined,
     })
 
     if (result.type === 'totp') {
@@ -152,6 +174,14 @@ async function handlePasskeySignIn() {
         <Alert v-if="passkeySupportMessage" type="warning" :show-icon="false">
           {{ passkeySupportMessage }}
         </Alert>
+
+        <FormItem v-if="capEnabled" label="人机验证">
+          <CaptchaCard
+            :api-endpoint="platformStore.capWidgetEndpoint"
+            @solve="(token) => captchaToken = token"
+            @error="() => captchaToken = ''"
+          />
+        </FormItem>
 
         <div class="auth-action-stack">
           <Button type="primary" size="large" block :loading="isSubmitting" :disabled="isPasskeySubmitting" html-type="submit">

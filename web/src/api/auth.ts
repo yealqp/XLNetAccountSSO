@@ -6,7 +6,7 @@ export function fetchSession() {
   return request<SessionResponse>('/api/auth/session')
 }
 
-export function login(payload: { username: string; password: string }) {
+export function login(payload: { username: string; password: string; captcha_token?: string }) {
 	return request<LoginResponse>('/api/auth/login', {
 		method: 'POST',
 		body: JSON.stringify(payload),

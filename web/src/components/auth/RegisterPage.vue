@@ -1,24 +1,19 @@
 <script setup lang="ts">
 import { useHead } from '@unhead/vue'
-import '@cap.js/widget'
 
-import { Alert, Button, Form, FormItem, Input, Message, Space, TypographyText as Text } from '@arco-design/web-vue'
+import { Button, Form, FormItem, Input, Message } from '@arco-design/web-vue'
 import { computed, onBeforeUnmount, reactive, shallowRef } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 useHead({ title: '注册 — XLNetAccount' })
 
 import { register, sendRegisterCode } from '@/api/auth'
+import { solveCaptcha } from '@/utils/captcha'
+import CaptchaCard from '@/components/ui/CaptchaCard.vue'
 import { ApiError } from '@/api/http'
 import { usePlatformStore } from '@/stores/platform'
 import { useSessionStore } from '@/stores/session'
 import { buildNextQuery, resolveNextTarget } from '@/utils/authNext'
-
-interface CapSolveEvent extends Event {
-	detail: {
-		token: string
-	}
-}
 
 const route = useRoute()
 const router = useRouter()
@@ -30,174 +25,172 @@ const isSendingCode = shallowRef(false)
 const submitError = shallowRef('')
 const codeSent = shallowRef(false)
 const captchaToken = shallowRef('')
-const capError = shallowRef('')
 const resendEmail = shallowRef('')
 const resendRemaining = shallowRef(0)
 
 let resendTimer: ReturnType<typeof setInterval> | null = null
 
 const formState = reactive({
-	username: '',
-	email: '',
-	password: '',
-	confirmPassword: '',
-	code: '',
+  username: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+  code: '',
 })
 
 void platformStore.ensureLoaded().catch(() => {})
 
 const capEnabled = computed(() => Boolean(platformStore.capWidgetEndpoint))
 const loginLink = computed(() => ({
-	name: 'login',
-	query: buildNextQuery(route.query.next),
+  name: 'login',
+  query: buildNextQuery(route.query.next),
 }))
 const passwordHint = '密码需为 8-20 位，且包含大写字母、小写字母和数字'
 const passwordChecks = computed(() => {
-	const password = formState.password
-	return [
-		{ label: '8-20 位长度', passed: password.length >= 8 && password.length <= 20 },
-		{ label: '包含大写字母', passed: /[A-Z]/.test(password) },
-		{ label: '包含小写字母', passed: /[a-z]/.test(password) },
-		{ label: '包含数字', passed: /\d/.test(password) },
-	]
+  const password = formState.password
+  return [
+    { label: '8-20 位长度', passed: password.length >= 8 && password.length <= 20 },
+    { label: '包含大写字母', passed: /[A-Z]/.test(password) },
+    { label: '包含小写字母', passed: /[a-z]/.test(password) },
+    { label: '包含数字', passed: /\d/.test(password) },
+  ]
 })
 const passwordValid = computed(() => passwordChecks.value.every(item => item.passed))
 const passwordMismatch = computed(() => formState.confirmPassword !== '' && formState.password !== formState.confirmPassword)
 const normalizedEmail = computed(() => formState.email.trim().toLowerCase())
 const sendCodeDisabled = computed(() => {
-	if (isSendingCode.value) {
-		return true
-	}
-	return resendRemaining.value > 0 && resendEmail.value === normalizedEmail.value
+  if (isSendingCode.value) return true
+  return resendRemaining.value > 0 && resendEmail.value === normalizedEmail.value
 })
 const sendCodeText = computed(() => {
-	if (sendCodeDisabled.value && resendRemaining.value > 0 && resendEmail.value === normalizedEmail.value) {
-		return `${resendRemaining.value}s`
-	}
-	return codeSent.value ? '重新发送' : '发送验证码'
+  if (sendCodeDisabled.value && resendRemaining.value > 0 && resendEmail.value === normalizedEmail.value) {
+    return `${resendRemaining.value}s`
+  }
+  return codeSent.value ? '重新发送' : '发送验证码'
 })
 
 onBeforeUnmount(() => {
-	clearResendTimer()
+  clearResendTimer()
 })
 
 async function handleSendCode() {
-	if (!normalizedEmail.value) {
-		submitError.value = '请先输入邮箱'
-		return
-	}
-	if (resendRemaining.value > 0 && resendEmail.value === normalizedEmail.value) {
-		submitError.value = `请在 ${resendRemaining.value} 秒后重试`
-		return
-	}
-	if (capEnabled.value && !captchaToken.value) {
-		capError.value = '请先完成人机验证'
-		return
-	}
+  if (!normalizedEmail.value) {
+    Message.error('请先输入邮箱')
+    return
+  }
+  if (resendRemaining.value > 0 && resendEmail.value === normalizedEmail.value) {
+    Message.error(`请在 ${resendRemaining.value} 秒后重试`)
+    return
+  }
 
-	isSendingCode.value = true
-	submitError.value = ''
+  // 自动完成人机验证（无感，后台 PoW 求解）
+  if (capEnabled.value && !captchaToken.value) {
+    isSendingCode.value = true
+    Message.loading('正在进行人机验证，请稍候...')
+    try {
+      const token = await solveCaptcha(platformStore.capWidgetEndpoint)
+      captchaToken.value = token
+    } catch (error) {
+      Message.clear()
+      isSendingCode.value = false
+      Message.error(error instanceof Error ? error.message : '人机验证失败，请重试')
+      return
+    }
+    Message.clear()
+  }
 
-	try {
-		await sendRegisterCode({
-			email: normalizedEmail.value,
-			captcha_token: captchaToken.value,
-		})
-		codeSent.value = true
-		startResendCountdown(normalizedEmail.value, 60)
-		Message.success('验证码已发送，请查收邮箱')
-	}
-	catch (error) {
-		submitError.value = error instanceof ApiError ? error.message : '发送验证码失败'
-		const retryAfter = extractRetryAfter(submitError.value)
-		if (retryAfter > 0) {
-			startResendCountdown(normalizedEmail.value, retryAfter)
-		}
-		Message.error(submitError.value)
-	}
-	finally {
-		isSendingCode.value = false
-	}
+  isSendingCode.value = true
+  submitError.value = ''
+
+  try {
+    await sendRegisterCode({
+      email: normalizedEmail.value,
+      captcha_token: captchaToken.value,
+    })
+    codeSent.value = true
+    startResendCountdown(normalizedEmail.value, 60)
+    Message.success('验证码已发送，请查收邮箱')
+  }
+  catch (error) {
+    const msg = error instanceof ApiError ? error.message : '发送验证码失败'
+    submitError.value = msg
+    const retryAfter = extractRetryAfter(msg)
+    if (retryAfter > 0) {
+      startResendCountdown(normalizedEmail.value, retryAfter)
+    }
+    Message.error(msg)
+  }
+  finally {
+    isSendingCode.value = false
+  }
 }
 
 async function handleSubmit() {
-	if (formState.password !== formState.confirmPassword) {
-		submitError.value = '两次输入的密码不一致'
-		return
-	}
-	if (!isPasswordValid(formState.password)) {
-		submitError.value = passwordHint
-		return
-	}
+  if (formState.password !== formState.confirmPassword) {
+    Message.error('两次输入的密码不一致')
+    return
+  }
+  if (!isPasswordValid(formState.password)) {
+    Message.error(passwordHint)
+    return
+  }
 
-	isSubmitting.value = true
-	submitError.value = ''
+  isSubmitting.value = true
+  submitError.value = ''
 
-	try {
-		await register({
-			username: formState.username,
-			email: formState.email,
-			password: formState.password,
-			code: formState.code,
-		})
-		await sessionStore.signIn({
-			username: formState.username,
-			password: formState.password,
-		})
-		Message.success('注册成功')
-		await router.replace(resolveNextTarget(route.query.next))
-	}
-	catch (error) {
-		submitError.value = error instanceof ApiError ? error.message : '注册失败，请稍后重试'
-		Message.error(submitError.value)
-	}
-	finally {
-		isSubmitting.value = false
-	}
-}
-
-function handleCapSolve(event: Event) {
-	const solveEvent = event as CapSolveEvent
-	captchaToken.value = solveEvent.detail.token
-	capError.value = ''
-}
-
-function handleCapError() {
-	captchaToken.value = ''
-	capError.value = '人机验证失败，请重试'
+  try {
+    await register({
+      username: formState.username,
+      email: formState.email,
+      password: formState.password,
+      code: formState.code,
+    })
+    await sessionStore.signIn({
+      username: formState.username,
+      password: formState.password,
+    })
+    Message.success('注册成功')
+    await router.replace(resolveNextTarget(route.query.next))
+  }
+  catch (error) {
+    const msg = error instanceof ApiError ? error.message : '注册失败，请稍后重试'
+    submitError.value = msg
+    Message.error(msg)
+  }
+  finally {
+    isSubmitting.value = false
+  }
 }
 
 function isPasswordValid(password: string) {
-	return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,20}$/.test(password)
+  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,20}$/.test(password)
 }
 
 function startResendCountdown(email: string, seconds: number) {
-	clearResendTimer()
-	resendEmail.value = email
-	resendRemaining.value = seconds
-	resendTimer = setInterval(() => {
-		if (resendRemaining.value <= 1) {
-			resendRemaining.value = 0
-			clearResendTimer()
-			return
-		}
-		resendRemaining.value -= 1
-	}, 1000)
+  clearResendTimer()
+  resendEmail.value = email
+  resendRemaining.value = seconds
+  resendTimer = setInterval(() => {
+    if (resendRemaining.value <= 1) {
+      resendRemaining.value = 0
+      clearResendTimer()
+      return
+    }
+    resendRemaining.value -= 1
+  }, 1000)
 }
 
 function clearResendTimer() {
-	if (resendTimer) {
-		clearInterval(resendTimer)
-		resendTimer = null
-	}
+  if (resendTimer) {
+    clearInterval(resendTimer)
+    resendTimer = null
+  }
 }
 
 function extractRetryAfter(message: string) {
-	const matched = message.match(/(\d+)\s*秒/)
-	if (!matched) {
-		return 0
-	}
-	return Number(matched[1] || 0)
+  const matched = message.match(/(\d+)\s*秒/)
+  if (!matched) return 0
+  return Number(matched[1] || 0)
 }
 </script>
 
@@ -210,55 +203,43 @@ function extractRetryAfter(message: string) {
     </div>
 
     <Form :model="formState" layout="vertical" class="auth-form" @submit="handleSubmit">
-      <FormItem label="邮箱">
-        <Input v-model="formState.email" clearable placeholder="邮箱" size="large" @input="submitError = ''" />
-      </FormItem>
-
       <FormItem label="用户名">
         <Input v-model="formState.username" clearable placeholder="用户名" size="large" @input="submitError = ''" />
       </FormItem>
 
-      <FormItem v-if="capEnabled" label="人机验证">
-        <div class="cap-shell">
-          <cap-widget
-            :data-cap-api-endpoint="platformStore.capWidgetEndpoint"
-            data-cap-i18n-initial-state="点击开始验证"
-            data-cap-i18n-verifying-label="验证中..."
-            data-cap-i18n-solved-label="验证通过"
-            data-cap-i18n-error-label="验证失败，请重试"
-            data-cap-i18n-verify-aria-label="点击开始人机验证"
-            data-cap-i18n-verifying-aria-label="正在进行人机验证"
-            data-cap-i18n-verified-aria-label="人机验证通过"
-            data-cap-i18n-error-aria-label="人机验证失败，请重试"
-            data-cap-i18n-wasm-disabled="当前环境未启用 WASM，验证速度可能较慢"
-            data-cap-i18n-troubleshooting-label="查看帮助"
-            @solve="handleCapSolve"
-            @error="handleCapError"
-          />
-        </div>
-        <Text v-if="capError" depth="3">{{ capError }}</Text>
-      </FormItem>
-
-      <FormItem label="验证码">
-        <Space style="width: 100%;">
-          <Input v-model="formState.code" placeholder="邮箱验证码" size="large" @input="submitError = ''" />
-          <Button type="secondary" :loading="isSendingCode" :disabled="sendCodeDisabled" @click="handleSendCode">
+      <FormItem label="邮箱">
+        <div class="email-row">
+          <Input v-model="formState.email" clearable placeholder="邮箱" size="large" @input="submitError = ''" />
+          <Button
+            type="secondary"
+            :loading="isSendingCode"
+            :disabled="!formState.email.trim() || sendCodeDisabled"
+            @click="handleSendCode"
+          >
             {{ sendCodeText }}
           </Button>
-        </Space>
+        </div>
       </FormItem>
 
-		<FormItem label="密码">
-        <Input v-model="formState.password" type="password"  placeholder="密码" size="large" @input="submitError = ''" />
+      <FormItem v-if="formState.email.trim()" label="验证码">
+        <Input v-model="formState.code" placeholder="邮箱验证码" size="large" @input="submitError = ''" />
+      </FormItem>
+
+      <FormItem v-if="capEnabled" label="人机验证">
+        <CaptchaCard
+          :api-endpoint="platformStore.capWidgetEndpoint"
+          @solve="(token) => captchaToken = token"
+          @error="() => captchaToken = ''"
+        />
+      </FormItem>
+
+      <FormItem label="密码">
+        <Input v-model="formState.password" type="password" placeholder="密码" size="large" @input="submitError = ''" />
       </FormItem>
 
       <FormItem label="确认密码">
-        <Input v-model="formState.confirmPassword" type="password"  placeholder="再次输入密码" size="large" @input="submitError = ''" />
+        <Input v-model="formState.confirmPassword" type="password" placeholder="再次输入密码" size="large" @input="submitError = ''" />
       </FormItem>
-
-      <Alert type="info" :show-icon="false" class="password-hint">
-        {{ passwordHint }}
-      </Alert>
 
       <div class="password-rule-list">
         <div v-for="rule in passwordChecks" :key="rule.label" class="password-rule" :class="{ passed: rule.passed }">
@@ -319,57 +300,37 @@ function extractRetryAfter(message: string) {
   gap: 4px;
 }
 
-.password-hint {
-  margin-top: -2px;
-}
-
 .password-rule-list {
-	display: grid;
-	gap: 6px;
-	margin-top: -2px;
-	padding: 10px 12px;
-	border: 1px solid var(--color-hairline);
-	border-radius: 8px;
-	background: rgba(0, 0, 0, 0.02);
+  display: grid;
+  gap: 6px;
+  margin-top: -2px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.02);
 }
 
 .password-rule {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	color: var(--color-charcoal);
-	font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-charcoal);
+  font-size: 13px;
 }
 
 .password-rule.passed {
-	color: var(--color-accent-green);
+  color: var(--color-accent-green);
 }
 
-.cap-shell {
+.email-row {
+  display: flex;
+  gap: 8px;
   width: 100%;
-  overflow-x: auto;
 }
 
-.cap-shell :deep(cap-widget) {
-  --cap-background: #161a22;
-  --cap-border-color: #2a3342;
-  --cap-border-radius: 4px;
-  --cap-widget-height: 36px;
-  --cap-widget-width: 100%;
-  --cap-widget-padding: 14px;
-  --cap-gap: 14px;
-  --cap-color: #eef4ff;
-  --cap-checkbox-size: 20px;
-  --cap-checkbox-border: 1px solid #395174;
-  --cap-checkbox-border-radius: 4px;
-  --cap-checkbox-background: #0f131a;
-  --cap-spinner-color: #4da3ff;
-  --cap-spinner-background-color: #243042;
-  display: long;
-}
-
-.cap-shell :deep(cap-widget)::part(attribution) {
-  display: none;
+.email-row .arco-input {
+  flex: 1;
+  min-width: 0;
 }
 
 .auth-link-row {

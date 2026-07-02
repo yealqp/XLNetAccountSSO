@@ -122,16 +122,18 @@ async function handleRevokeClient(group: TokenGroup) {
 function tokenTagType(status: TokenRecord['status']) {
   switch (status) {
     case 'active':
-      return 'success'
+      return 'green'
     case 'expired':
-      return 'warning'
+      return 'orange'
+    case 'revoked':
+      return 'red'
     default:
-      return 'error'
+      return 'gray'
   }
 }
 
 function tokenKindType(kind: TokenRecord['token_kind']) {
-  return kind === 'access' ? 'info' : 'default'
+  return kind === 'access' ? 'blue' : 'purple'
 }
 
 function isActionPending(actionKey: string) {
@@ -206,12 +208,12 @@ function isActionPending(actionKey: string) {
               <TableColumn v-if="manageAll" data-index="owner_username" title="所属用户" />
               <TableColumn data-index="token_kind" title="类型">
                 <template #cell="{ record }">
-                  <Tag size="small" :color="tokenKindType(record.token_kind)">{{ record.token_kind }}</Tag>
+                  <Tag size="small" :color="tokenKindType(record.token_kind)">{{ record.token_kind === 'access' ? 'Access' : 'Refresh' }}</Tag>
                 </template>
               </TableColumn>
               <TableColumn data-index="status" title="状态">
                 <template #cell="{ record }">
-                  <Tag size="small" :color="tokenTagType(record.status)">{{ record.status }}</Tag>
+                  <Tag size="small" :color="tokenTagType(record.status)">{{ record.status === 'active' ? '活跃' : record.status === 'expired' ? '过期' : record.status === 'revoked' ? '已吊销' : record.status }}</Tag>
                 </template>
               </TableColumn>
               <TableColumn data-index="scope" title="Scope">

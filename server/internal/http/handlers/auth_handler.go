@@ -28,11 +28,15 @@ func NewAuthHandler(authService *service.AuthService, passkeyService *service.Pa
 
 func (handler *AuthHandler) Login(c *fiber.Ctx) error {
 	var input struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
+		Username     string `json:"username"`
+		Password     string `json:"password"`
+		CaptchaToken string `json:"captcha_token"`
 	}
 	if err := c.BodyParser(&input); err != nil {
 		return writeError(c, fiber.StatusBadRequest, "invalid login payload")
+	}
+	if err := service.VerifyCAPTCHA(handler.cfg, input.CaptchaToken); err != nil {
+		return writeError(c, fiber.StatusBadRequest, cleanServiceError(err, service.ErrInvalidInput))
 	}
 	result, err := handler.authService.Login(context.Background(), input.Username, input.Password, service.SessionMeta{
 		IPAddress: c.IP(),

@@ -5,7 +5,6 @@
   "scripts": {
     "dev:web": "pnpm --filter @sso/web dev",
     "build:web": "pnpm --filter @sso/web build",
-    "build:server": "go -C server build ./cmd/sso"
-    
+    "build:server": "set GOOS=linux&& set GOARCH=amd64&& go -C server build -o xlnet-account-server ./cmd/sso"
   }
 }

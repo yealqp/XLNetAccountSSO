@@ -140,7 +140,13 @@ void platformStore.ensureLoaded().catch(() => {})
 
   .auth-panel-card {
     width: 100%;
+    max-height: none;
     padding: 20px;
+    overflow-y: visible;
+  }
+
+  .auth-content {
+    overflow-y: auto;
   }
 }
 </style>

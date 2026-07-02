@@ -4,6 +4,8 @@ node_modules/
 dist/
 .pnpm-store/
 coverage/
+.claude/
+scripts/
 .env
 .env.local
 .env.*.local

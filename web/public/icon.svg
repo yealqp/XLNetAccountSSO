@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" fill="none">
+  <!-- shield -->
+  <path d="M160 24L40 80V168C40 250 96 296 160 320C224 296 280 250 280 168V80L160 24Z" stroke="#4a7cff" stroke-width="16" stroke-linejoin="round" fill="#eef4ff"/>
+  <!-- lock body -->
+  <rect x="120" y="164" width="80" height="64" rx="8" fill="#4a7cff"/>
+  <!-- lock shackle -->
+  <path d="M128 164V140C128 120 144 104 160 104C176 104 192 120 192 140V164" stroke="#4a7cff" stroke-width="14" stroke-linecap="round"/>
+  <!-- keyhole -->
+  <circle cx="160" cy="192" r="8" fill="white"/>
+  <path d="M157 200L160 216L163 200" fill="white"/>
+</svg>

@@ -34,7 +34,7 @@ export const useSessionStore = defineStore('session', () => {
     return user.value
   }
 
-  async function signIn(payload: { username: string; password: string }): Promise<SignInResult> {
+  async function signIn(payload: { username: string; password: string; captcha_token?: string }): Promise<SignInResult> {
     const response = await login(payload)
     if (isTOTPRequired(response)) {
       return { type: 'totp', sessionId: response.totp_session_id, user: response.user }
