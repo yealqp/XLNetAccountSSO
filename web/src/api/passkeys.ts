@@ -1,30 +1,10 @@
-import type { AuthTokenResponse, PasskeyRecord } from '@/types/api'
+import type { AuthTokenResponse, ListResponse, PasskeyLoginStartResponse, PasskeyRecord, PasskeyRegistrationFinishResponse, PasskeyRegistrationStartResponse } from '@/types/api'
 import type {
 	AuthenticationCredentialJSON,
-	PublicKeyCredentialCreationOptionsEnvelopeJSON,
-	PublicKeyCredentialRequestOptionsEnvelopeJSON,
 	RegistrationCredentialJSON,
 } from '@/types/webauthn'
 
 import { request } from './http'
-
-interface PasskeyListResponse {
-	items: PasskeyRecord[]
-}
-
-interface PasskeyLoginStartResponse {
-	session_id: string
-	options: PublicKeyCredentialRequestOptionsEnvelopeJSON
-}
-
-interface PasskeyRegistrationStartResponse {
-	session_id: string
-	options: PublicKeyCredentialCreationOptionsEnvelopeJSON
-}
-
-interface PasskeyRegistrationFinishResponse {
-	credential: PasskeyRecord
-}
 
 export function startPasskeyLogin() {
 	return request<PasskeyLoginStartResponse>('/api/auth/passkeys/login/start', {
@@ -40,7 +20,7 @@ export function finishPasskeyLogin(payload: { session_id: string; credential: Au
 }
 
 export function fetchPasskeys() {
-	return request<PasskeyListResponse>('/api/me/passkeys')
+	return request<ListResponse<PasskeyRecord>>('/api/me/passkeys')
 }
 
 export function startPasskeyRegistration() {

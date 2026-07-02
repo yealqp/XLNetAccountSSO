@@ -110,6 +110,11 @@ export interface AuthorizationPreview {
   }
 }
 
+import type {
+  PublicKeyCredentialCreationOptionsEnvelopeJSON,
+  PublicKeyCredentialRequestOptionsEnvelopeJSON,
+} from '@/types/webauthn'
+
 export interface AuthorizationDecisionPayload {
   response_type: string
   client_id: string
@@ -121,3 +126,73 @@ export interface AuthorizationDecisionPayload {
   code_challenge_method: string
   approved: boolean
 }
+
+export interface ListResponse<T> { items: T[] }
+
+export interface BooleanResponse { enabled: boolean }
+
+export interface SentResponse { sent: boolean }
+
+export interface PlatformSettingsResponse {
+  platform_name: string
+  allow_registration: boolean
+  web_icon_url?: string
+  smtp_configured?: boolean
+  cap_configured?: boolean
+  cap_api_endpoint?: string
+  cap_site_key?: string
+}
+
+export interface SetupStatusResponse {
+  initialized: boolean
+}
+
+export interface InitializeAdminPayload {
+  username: string
+  password: string
+  email: string
+}
+
+export interface OAuthBindingRecord {
+  id: string
+  user_id: number
+  provider: string
+  email: string
+  name: string
+  created_at: string
+}
+
+export interface PasskeyLoginStartResponse {
+  session_id: string
+  options: PublicKeyCredentialRequestOptionsEnvelopeJSON
+}
+
+export interface PasskeyRegistrationStartResponse {
+  session_id: string
+  options: PublicKeyCredentialCreationOptionsEnvelopeJSON
+}
+
+export interface PasskeyRegistrationFinishResponse {
+  credential: PasskeyRecord
+}
+
+export interface CreateClientInput {
+  name: string
+  description: string
+  icon_url: string
+  client_id: string
+  client_type: string
+  redirect_uris: string[]
+  scopes: string[]
+  trusted: boolean
+}
+
+export interface UpdateClientInput extends Partial<CreateClientInput> {}
+
+export interface CreateUserInput {
+  username: string
+  password: string
+  email: string
+}
+
+export interface UpdateUserInput extends Partial<CreateUserInput> {}

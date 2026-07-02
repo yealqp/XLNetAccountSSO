@@ -1,9 +1,9 @@
-import type { AuthTokenResponse } from '@/types/api'
+import type { AuthTokenResponse, BooleanResponse } from '@/types/api'
 
 import { request } from './http'
 
 export function fetchTOTPStatus() {
-  return request<{ enabled: boolean }>('/api/me/totp/status')
+  return request<BooleanResponse>('/api/me/totp/status')
 }
 
 export function startTOTPSetup() {
@@ -13,14 +13,14 @@ export function startTOTPSetup() {
 }
 
 export function verifyTOTPSetup(payload: { setup_session_id: string; code: string }) {
-  return request<{ enabled: boolean }>('/api/me/totp/setup/verify', {
+  return request<BooleanResponse>('/api/me/totp/setup/verify', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
 }
 
 export function disableTOTP() {
-  return request<{ enabled: boolean }>('/api/me/totp/disable', {
+  return request<BooleanResponse>('/api/me/totp/disable', {
     method: 'POST',
   })
 }

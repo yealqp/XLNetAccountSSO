@@ -1,4 +1,4 @@
-import type { LoginResponse, SessionResponse } from '@/types/api'
+import type { LoginResponse, SessionResponse, SentResponse } from '@/types/api'
 
 import { request } from './http'
 
@@ -28,13 +28,13 @@ export function updateProfile(payload: { username: string; password: string; cod
 }
 
 export function sendProfilePasswordCode() {
-	return request<{ sent: boolean }>('/api/me/password/code/send', {
+	return request<SentResponse>('/api/me/password/code/send', {
 		method: 'POST',
 	})
 }
 
 export function sendRegisterCode(payload: { email: string; captcha_token: string }) {
-	return request<{ sent: boolean }>('/api/auth/register/code/send', {
+	return request<SentResponse>('/api/auth/register/code/send', {
 		method: 'POST',
 		body: JSON.stringify(payload),
 	})

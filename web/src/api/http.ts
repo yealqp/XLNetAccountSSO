@@ -14,7 +14,7 @@ export class ApiError extends Error {
   }
 }
 
-interface ApiEnvelope<T> {
+export interface ApiEnvelope<T> {
   code: number
   data: T
   message: string

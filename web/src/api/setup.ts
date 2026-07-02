@@ -1,14 +1,6 @@
+import type { SetupStatusResponse, InitializeAdminPayload } from '@/types/api'
+
 import { request } from './http'
-
-export interface SetupStatusResponse {
-	initialized: boolean
-}
-
-export interface InitializeAdminPayload {
-	username: string
-	password: string
-	email: string
-}
 
 export function fetchSetupStatus() {
 	return request<SetupStatusResponse>('/api/setup/status')

@@ -1,17 +1,11 @@
-import { request } from './http'
+import type { ListResponse, OAuthBindingRecord } from '@/types/api'
 import { getServerBaseUrl } from '@/config/endpoints'
+import { getAuthToken } from '@/utils/authToken'
 
-export interface OAuthBindingRecord {
-  id: string
-  user_id: number
-  provider: string
-  email: string
-  name: string
-  created_at: string
-}
+import { request } from './http'
 
 export function fetchOAuthBindings() {
-  return request<{ items: OAuthBindingRecord[] }>('/api/me/oauth/accounts')
+  return request<ListResponse<OAuthBindingRecord>>('/api/me/oauth/accounts')
 }
 
 export function unlinkOAuthBinding(id: string) {
@@ -19,6 +13,5 @@ export function unlinkOAuthBinding(id: string) {
 }
 
 export function getOAuthBindUrl(provider: string) {
-  const token = typeof window !== 'undefined' ? window.localStorage.getItem('xlnetaccount-access-token') : ''
-  return getServerBaseUrl() + `/api/me/oauth/${provider}/link?token=${encodeURIComponent(token || '')}`
+  return getServerBaseUrl() + `/api/me/oauth/${provider}/link?token=${encodeURIComponent(getAuthToken())}`
 }

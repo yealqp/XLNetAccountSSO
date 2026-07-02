@@ -1,4 +1,4 @@
-import type { OAuthClientRecord, OverviewStats, TokenRecord, UserRecord } from '@/types/api'
+import type { CreateClientInput, CreateUserInput, ListResponse, OAuthClientRecord, OverviewStats, TokenRecord, UserRecord } from '@/types/api'
 
 import { request } from './http'
 
@@ -11,101 +11,94 @@ export function fetchManagedOverview() {
 }
 
 export async function fetchClients() {
-  const response = await request<{ items: OAuthClientRecord[] }>('/api/clients')
+  const response = await request<ListResponse<OAuthClientRecord>>('/api/clients')
   return response.items
 }
 
 export async function fetchManagedClients() {
-  const response = await request<{ items: OAuthClientRecord[] }>('/api/manage/clients')
+  const response = await request<ListResponse<OAuthClientRecord>>('/api/manage/clients')
   return response.items
 }
 
-export function createClient(payload: Record<string, unknown>) {
-	return request<OAuthClientRecord>('/api/clients', {
+export function createClient(payload: CreateClientInput) {
+  return request<OAuthClientRecord>('/api/clients', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
 }
 
-export function updateClient(id: string, payload: Record<string, unknown>) {
-	return request<OAuthClientRecord>(`/api/clients/${id}/update`, {
-		method: 'POST',
-		body: JSON.stringify(payload),
-	})
+export function updateClient(id: string, payload: Partial<CreateClientInput>) {
+  return request<OAuthClientRecord>(`/api/clients/${id}/update`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
 
-export function updateManagedClient(id: string, payload: Record<string, unknown>) {
-	return request<OAuthClientRecord>(`/api/manage/clients/${id}/update`, {
-		method: 'POST',
-		body: JSON.stringify(payload),
-	})
+export function updateManagedClient(id: string, payload: Partial<CreateClientInput>) {
+  return request<OAuthClientRecord>(`/api/manage/clients/${id}/update`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
 
 export function deleteClient(id: string) {
-	return request<void>(`/api/clients/${id}/delete`, {
-		method: 'POST',
-	})
+  return request<void>(`/api/clients/${id}/delete`, { method: 'POST' })
 }
 
 export function deleteManagedClient(id: string) {
-	return request<void>(`/api/manage/clients/${id}/delete`, {
-		method: 'POST',
-	})
+  return request<void>(`/api/manage/clients/${id}/delete`, { method: 'POST' })
 }
 
 export function uploadClientIcon(file: File) {
-	const formData = new FormData()
-	formData.append('file', file)
-
-	return request<{ icon_url: string }>('/api/client-icons/upload', {
-		method: 'POST',
-		body: formData,
-	})
+  const formData = new FormData()
+  formData.append('file', file)
+  return request<{ icon_url: string }>('/api/client-icons/upload', {
+    method: 'POST',
+    body: formData,
+  })
 }
 
 export async function fetchUsers() {
-  const response = await request<{ items: UserRecord[] }>('/api/users')
+  const response = await request<ListResponse<UserRecord>>('/api/users')
   return response.items
 }
 
-export function createUser(payload: Record<string, unknown>) {
+export function createUser(payload: CreateUserInput) {
   return request<UserRecord>('/api/users', {
     method: 'POST',
     body: JSON.stringify(payload),
   })
 }
 
-export function updateUser(id: number, payload: Record<string, unknown>) {
-	return request<UserRecord>(`/api/users/${id}/update`, {
-		method: 'POST',
-		body: JSON.stringify(payload),
-	})
+export function updateUser(id: number, payload: Partial<CreateUserInput>) {
+  return request<UserRecord>(`/api/users/${id}/update`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
 
 export function deleteUser(id: number) {
-	return request<void>(`/api/users/${id}/delete`, {
-		method: 'POST',
-	})
+  return request<void>(`/api/users/${id}/delete`, { method: 'POST' })
 }
 
 export async function fetchTokens() {
-  const response = await request<{ items: TokenRecord[] }>('/api/tokens')
+  const response = await request<ListResponse<TokenRecord>>('/api/tokens')
   return response.items
 }
 
 export async function fetchManagedTokens() {
-  const response = await request<{ items: TokenRecord[] }>('/api/manage/tokens')
+  const response = await request<ListResponse<TokenRecord>>('/api/manage/tokens')
   return response.items
 }
 
 export function revokeAccessToken(id: string) {
-	return request<void>(`/api/tokens/access/${id}/revoke`, { method: 'POST' })
+  return request<void>(`/api/tokens/access/${id}/revoke`, { method: 'POST' })
 }
 
 export function revokeRefreshToken(id: string) {
-	return request<void>(`/api/tokens/refresh/${id}/revoke`, { method: 'POST' })
+  return request<void>(`/api/tokens/refresh/${id}/revoke`, { method: 'POST' })
 }
 
 export function revokeClientTokens(clientId: string) {
-	return request<void>(`/api/tokens/client/${encodeURIComponent(clientId)}/revoke`, { method: 'POST' })
+  return request<void>(`/api/tokens/client/${encodeURIComponent(clientId)}/revoke`, { method: 'POST' })
 }
