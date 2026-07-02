@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { useHead } from '@unhead/vue'
 import {
-  NAlert,
-  NAvatar,
-  NButton,
-  NCard,
-  NCode,
-  NEmpty,
-  NPopconfirm,
-  NSpace,
-  NTable,
-  NTag,
-  useDialog,
-  useMessage,
-} from 'naive-ui'
+  Alert,
+  Avatar,
+  Button,
+  Card,
+  Empty,
+  Message,
+  Modal,
+  Popconfirm,
+  Space,
+  Table,
+  TableColumn,
+  Tag,
+} from '@arco-design/web-vue'
 import { computed, h, onMounted, shallowRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -25,8 +25,6 @@ import ClientFormDrawer from '@/components/admin/ClientFormDrawer.vue'
 import { resolveServerUrl } from '@/config/endpoints'
 import type { OAuthClientRecord } from '@/types/api'
 
-const message = useMessage()
-const dialog = useDialog()
 const route = useRoute()
 
 const clients = shallowRef<OAuthClientRecord[]>([])
@@ -50,7 +48,7 @@ async function loadClients() {
   }
   catch (error) {
     loadError.value = error instanceof ApiError ? error.message : '加载客户端失败'
-    message.error(loadError.value)
+    Message.error(loadError.value)
   }
 }
 
@@ -74,36 +72,28 @@ async function handleSaved(client: OAuthClientRecord) {
 async function handleDelete(client: OAuthClientRecord) {
   try {
     await (manageAll.value ? deleteManagedClient(client.id) : deleteClient(client.id))
-    message.success('客户端已删除')
+    Message.success('客户端已删除')
     await loadClients()
   }
   catch (error) {
-    message.error(error instanceof ApiError ? error.message : '删除客户端失败')
+    Message.error(error instanceof ApiError ? error.message : '删除客户端失败')
   }
 }
 
 function openSecretDialog(secret: string) {
-  dialog.warning({
+  Modal.warning({
     title: 'Client Secret',
     content: () => h('div', { style: { display: 'grid', gap: '12px' } }, [
       h('span', '仅展示一次，请立即保存。'),
-      h(NCode, {
-        code: secret,
-        language: 'text',
-        wordWrap: true,
-      }),
+      h('pre', { style: { margin: 0, padding: '12px', border: '1px solid var(--color-hairline)', borderRadius: 'var(--radius-md)', background: 'var(--color-surface-elevated)', color: 'var(--color-ink)', overflow: 'auto' } }, [h('code', secret)]),
     ]),
-    positiveText: '我已保存',
-    negativeText: '复制',
-    onNegativeClick: async () => {
-      try {
-        await navigator.clipboard.writeText(secret)
-        message.success('已复制 Client Secret')
-      }
-      catch {
-        message.error('复制失败，请手动复制')
-      }
-      return false
+    okText: '我已保存',
+    cancelText: '复制',
+    onCancel: () => {
+      navigator.clipboard.writeText(secret).then(
+        () => Message.success('已复制 Client Secret'),
+        () => Message.error('复制失败，请手动复制'),
+      )
     },
   })
 }
@@ -116,80 +106,79 @@ function openSecretDialog(secret: string) {
         <h1 class="page-title">{{ manageAll ? '应用管理' : '应用' }}</h1>
         <p class="page-subtitle">{{ manageAll ? '查看全部应用并执行管理操作。' : '查看并维护您创建的应用。' }}</p>
       </div>
-      <NButton type="primary" @click="openCreateDrawer">新建客户端</NButton>
+      <Button type="primary" @click="openCreateDrawer">新建客户端</Button>
     </header>
 
-    <NAlert v-if="loadError" type="error" :show-icon="false">
+    <Alert v-if="loadError" type="error" :show-icon="false">
       <div class="page-alert">
         <span>{{ loadError }}</span>
-        <NButton size="small" tertiary @click="loadClients">重试</NButton>
+        <Button size="small" type="text" @click="loadClients">重试</Button>
       </div>
-    </NAlert>
+    </Alert>
 
-    <NCard>
-      <NEmpty v-if="clients.length === 0" description="暂无客户端。" />
+    <Card>
+      <Empty v-if="clients.length === 0" description="暂无客户端。" />
 
-      <div v-else class="table-scroll">
-        <NTable striped>
-          <thead>
-            <tr>
-              <th>名称</th>
-              <th v-if="manageAll">所属用户</th>
-              <th>Client ID</th>
-              <th>类型</th>
-              <th>Scope</th>
-              <th>回调地址</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="client in clients" :key="client.id">
-              <td>
-                <div class="client-name-cell">
-                  <NAvatar :size="28" :src="resolveServerUrl(client.icon_url) || undefined" :round="false" class="client-avatar">
-                    {{ client.name.charAt(0).toUpperCase() }}
-                  </NAvatar>
-                  <div>
-                    <div class="cell-title">{{ client.name }}</div>
-                    <div class="cell-description">{{ client.description || '暂无描述' }}</div>
-                  </div>
+      <Table v-else :data="clients" stripe row-key="id">
+        <template #columns>
+          <TableColumn title="名称">
+            <template #cell="{ record }">
+              <div class="client-name-cell">
+                <Avatar :size="28" :src="resolveServerUrl(record.icon_url) || undefined" class="client-avatar">
+                  {{ record.name.charAt(0).toUpperCase() }}
+                </Avatar>
+                <div>
+                  <div class="cell-title">{{ record.name }}</div>
+                  <div class="cell-description">{{ record.description || '暂无描述' }}</div>
                 </div>
-              </td>
-              <td v-if="manageAll">{{ client.owner_username || '-' }}</td>
-              <td class="mono">{{ client.client_id }}</td>
-              <td>
-                <NTag :type="client.client_type === 'confidential' ? 'warning' : 'info'" size="small">
-                  {{ client.client_type }}
-                </NTag>
-              </td>
-              <td>
-                <NSpace>
-                  <NTag v-for="scope in client.scopes" :key="scope" size="small" round>
-                    {{ scope }}
-                  </NTag>
-                </NSpace>
-              </td>
-              <td>
-                <div v-for="uri in client.redirect_uris" :key="uri" class="mono uri-line">
-                  {{ uri }}
-                </div>
-              </td>
-              <td>
-                <NSpace>
-                  <NButton size="small" tertiary @click="openEditDrawer(client)">编辑</NButton>
-                  <NPopconfirm @positive-click="handleDelete(client)">
-                    <template #trigger>
-                      <NButton size="small" tertiary type="error">删除</NButton>
-                    </template>
+              </div>
+            </template>
+          </TableColumn>
+          <TableColumn v-if="manageAll" data-index="owner_username" title="所属用户" />
+          <TableColumn data-index="client_id" title="Client ID">
+            <template #cell="{ record }">
+              <span class="mono">{{ record.client_id }}</span>
+            </template>
+          </TableColumn>
+          <TableColumn data-index="client_type" title="类型">
+            <template #cell="{ record }">
+              <Tag :color="record.client_type === 'confidential' ? 'orange' : undefined" size="small">
+                {{ record.client_type }}
+              </Tag>
+            </template>
+          </TableColumn>
+          <TableColumn title="Scope">
+            <template #cell="{ record }">
+              <Space>
+                <Tag v-for="scope in record.scopes" :key="scope" size="small" round>
+                  {{ scope }}
+                </Tag>
+              </Space>
+            </template>
+          </TableColumn>
+          <TableColumn title="回调地址">
+            <template #cell="{ record }">
+              <div v-for="uri in record.redirect_uris" :key="uri" class="mono uri-line">
+                {{ uri }}
+              </div>
+            </template>
+          </TableColumn>
+          <TableColumn title="操作">
+            <template #cell="{ record }">
+              <Space>
+                <Button size="small" type="text" @click="openEditDrawer(record)">编辑</Button>
+                <Popconfirm @ok="handleDelete(record)">
+                  <Button size="small" type="text" status="danger">删除</Button>
+                  <template #content>
                     删除后不可恢复，确认继续？
-                  </NPopconfirm>
-                </NSpace>
-              </td>
-            </tr>
-          </tbody>
-        </NTable>
-      </div>
-    </NCard>
+                  </template>
+                </Popconfirm>
+              </Space>
+            </template>
+          </TableColumn>
+        </template>
+      </Table>
+    </Card>
 
     <ClientFormDrawer
       v-model:show="drawerVisible"

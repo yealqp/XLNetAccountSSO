@@ -1,22 +1,29 @@
 <script setup lang="ts">
 import {
-  NButton,
-  NDrawer,
-  NDrawerContent,
-  NIcon,
-  NLayout,
-  NLayoutContent,
-  NLayoutHeader,
-  NLayoutSider,
-  NMenu,
-  NSpin,
-  NSpace,
-  NTag,
-  NText,
-  useMessage,
-} from 'naive-ui'
-import type { MenuOption } from 'naive-ui'
-import { computed, h, shallowRef, watch } from 'vue'
+  Button,
+  Drawer,
+  Layout,
+  LayoutContent,
+  LayoutHeader,
+  LayoutSider,
+  Menu,
+  MenuItem,
+  MenuItemGroup,
+  Message,
+  Space,
+  Spin,
+  Tag,
+  TypographyText as Text,
+} from '@arco-design/web-vue'
+import { computed, shallowRef, watch } from 'vue'
+
+type MenuOption = {
+  label: string
+  key: string
+  type?: 'group'
+  icon?: object
+  children?: MenuOption[]
+}
 import { RouterView, useRouter } from 'vue-router'
 import {
   AppWindow,
@@ -35,7 +42,6 @@ import { usePlatformStore } from '@/stores/platform'
 import { useSessionStore } from '@/stores/session'
 
 const router = useRouter()
-const message = useMessage()
 const sessionStore = useSessionStore()
 const platformStore = usePlatformStore()
 const mobileMenuOpen = shallowRef(false)
@@ -44,9 +50,6 @@ void platformStore.ensureLoaded().catch(() => {})
 
 const isAdmin = computed(() => sessionStore.user?.role === 'admin')
 
-function renderLucideIcon(icon: typeof LayoutDashboard) {
-  return () => h(NIcon, null, { default: () => h(icon) })
-}
 
 const menuOptions = computed<MenuOption[]>(() => {
   const items: MenuOption[] = [
@@ -55,11 +58,11 @@ const menuOptions = computed<MenuOption[]>(() => {
       key: 'group-navigation',
       type: 'group',
       children: [
-        { label: '概览', key: 'overview', icon: renderLucideIcon(LayoutDashboard) },
-        { label: '应用', key: 'applications', icon: renderLucideIcon(AppWindow) },
-        { label: '令牌', key: 'tokens', icon: renderLucideIcon(WalletCards) },
-        { label: '普通设置', key: 'settings', icon: renderLucideIcon(Settings) },
-        { label: '连接信息', key: 'connection-info', icon: renderLucideIcon(Link2) },
+        { label: '概览', key: 'overview', icon: LayoutDashboard },
+        { label: '应用', key: 'applications', icon: AppWindow },
+        { label: '令牌', key: 'tokens', icon: WalletCards },
+        { label: '普通设置', key: 'settings', icon: Settings },
+        { label: '连接信息', key: 'connection-info', icon: Link2 },
       ],
     },
   ]
@@ -70,11 +73,11 @@ const menuOptions = computed<MenuOption[]>(() => {
       key: 'group-management',
       type: 'group',
       children: [
-        { label: '管理概览', key: 'manage-overview', icon: renderLucideIcon(LayoutDashboard) },
-        { label: '用户管理', key: 'manage-users', icon: renderLucideIcon(UserCog) },
-        { label: '应用管理', key: 'manage-applications', icon: renderLucideIcon(Boxes) },
-        { label: '令牌管理', key: 'manage-tokens', icon: renderLucideIcon(ShieldUser) },
-        { label: '系统设置', key: 'system-settings', icon: renderLucideIcon(Shield) },
+        { label: '管理概览', key: 'manage-overview', icon: LayoutDashboard },
+        { label: '用户管理', key: 'manage-users', icon: UserCog },
+        { label: '应用管理', key: 'manage-applications', icon: Boxes },
+        { label: '令牌管理', key: 'manage-tokens', icon: ShieldUser },
+        { label: '系统设置', key: 'system-settings', icon: Shield },
       ],
     })
   }
@@ -96,7 +99,7 @@ watch(isMobile, (nextIsMobile) => {
 
 async function handleLogout() {
   await sessionStore.signOut()
-  message.success('已退出登录')
+  Message.success('已退出登录')
   await router.push({ name: 'login' })
 }
 
@@ -107,30 +110,47 @@ async function handleNavigate(key: string) {
 </script>
 
 <template>
-  <NLayout class="page-shell admin-layout main-layout" :has-sider="!isMobile" position="absolute">
-    <NLayoutSider v-if="!isMobile" bordered :width="220" class="admin-sider">
+  <Layout class="page-shell admin-layout main-layout">
+    <LayoutSider v-if="!isMobile" bordered :width="220" class="admin-sider">
       <div class="sider-brand">
-        <NText depth="3">{{ platformStore.displayName }}</NText>
+        <Text type="secondary">{{ platformStore.displayName }}</Text>
       </div>
-      <NMenu :value="selectedKey" :options="menuOptions" @update:value="(key) => handleNavigate(String(key))" />
-    </NLayoutSider>
+      <Menu :selected-keys="[selectedKey]" @menu-item-click="(key: any) => handleNavigate(String(key))">
+        <template v-for="item in menuOptions" :key="item.key">
+          <MenuItemGroup v-if="item.type === 'group'" :title="item.label">
+            <MenuItem v-for="child in item.children" :key="child.key">
+              <template #icon>
+                <component :is="child.icon" :size="16" />
+              </template>
+              {{ child.label }}
+            </MenuItem>
+          </MenuItemGroup>
+          <MenuItem v-else :key="item.key">
+            <template #icon>
+              <component :is="item.icon" :size="16" />
+            </template>
+            {{ item.label }}
+          </MenuItem>
+        </template>
+      </Menu>
+    </LayoutSider>
 
-    <NLayout class="admin-content-layout content-layout">
-      <NLayoutHeader bordered class="admin-header">
+    <Layout class="admin-content-layout content-layout">
+      <LayoutHeader bordered class="admin-header">
         <div class="header-spacer"></div>
-        <NSpace align="center" :wrap="true" class="header-actions">
-          <NButton v-if="isMobile" secondary @click="mobileMenuOpen = true">
+        <Space align="center" wrap class="header-actions">
+          <Button v-if="isMobile" type="secondary" @click="mobileMenuOpen = true">
             菜单
-          </NButton>
-          <NTag size="small" round type="info">/{{ sessionStore.user?.role ?? 'user' }}</NTag>
-          <NText depth="3">{{ sessionStore.user?.username }}</NText>
-          <NButton tertiary type="error" @click="handleLogout">
+          </Button>
+          <Tag size="small" round color="blue">{{ sessionStore.user?.role === 'admin' ? '管理员' : '普通用户' }}</Tag>
+          <Text type="secondary">{{ sessionStore.user?.username }}</Text>
+          <Button type="text" status="danger" @click="handleLogout">
             退出
-          </NButton>
-        </NSpace>
-      </NLayoutHeader>
+          </Button>
+        </Space>
+      </LayoutHeader>
 
-      <NLayoutContent class="content-body">
+      <LayoutContent class="content-body">
         <RouterView v-slot="{ Component, route: currentRoute }">
           <transition name="fade-slide" mode="out-in">
             <div v-if="Component" :key="currentRoute.path" class="route-container page-container">
@@ -140,22 +160,37 @@ async function handleNavigate(key: string) {
                 </template>
                 <template #fallback>
                   <div class="route-loading">
-                    <NSpin size="medium" />
+                    <Spin />
                   </div>
                 </template>
               </Suspense>
             </div>
           </transition>
         </RouterView>
-      </NLayoutContent>
-    </NLayout>
+      </LayoutContent>
+    </Layout>
 
-    <NDrawer v-model:show="mobileMenuOpen" placement="left" :width="mobileDrawerWidth">
-      <NDrawerContent :title="platformStore.displayName" body-content-style="padding: 0;" closable>
-        <NMenu :value="selectedKey" :options="menuOptions" @update:value="(key) => handleNavigate(String(key))" />
-      </NDrawerContent>
-    </NDrawer>
-  </NLayout>
+    <Drawer v-model:visible="mobileMenuOpen" placement="left" :width="mobileDrawerWidth" :title="platformStore.displayName" closable>
+        <Menu :selected-keys="[selectedKey]" @menu-item-click="(key: any) => handleNavigate(String(key))">
+          <template v-for="item in menuOptions" :key="item.key">
+            <MenuItemGroup v-if="item.type === 'group'" :title="item.label">
+              <MenuItem v-for="child in item.children" :key="child.key">
+                <template #icon>
+                  <component :is="child.icon" :size="16" />
+                </template>
+                {{ child.label }}
+              </MenuItem>
+            </MenuItemGroup>
+            <MenuItem v-else :key="item.key">
+              <template #icon>
+                <component :is="item.icon" :size="16" />
+              </template>
+              {{ item.label }}
+            </MenuItem>
+          </template>
+        </Menu>
+          </Drawer>
+  </Layout>
 </template>
 
 <style scoped>
@@ -164,7 +199,7 @@ async function handleNavigate(key: string) {
   min-height: 100dvh;
 }
 
-.admin-layout :deep(.n-layout-scroll-container) {
+.admin-layout :deep(.arco-layout-content) {
   min-height: 100%;
 }
 

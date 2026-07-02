@@ -1,12 +1,11 @@
 {
   "name": "sso-platform",
   "private": true,
-  "packageManager": "pnpm@10.32.1",
+  "packageManager": "pnpm@11.9.0",
   "scripts": {
     "dev:web": "pnpm --filter @sso/web dev",
     "build:web": "pnpm --filter @sso/web build",
-    "build:server": "go -C server build ./cmd/sso",
-    "docker:all": "docker compose up --build -d",
-    "docker:server": "docker compose up --build -d server"
+    "build:server": "go -C server build ./cmd/sso"
+    
   }
 }

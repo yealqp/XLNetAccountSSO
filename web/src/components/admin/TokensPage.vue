@@ -1,18 +1,6 @@
 <script setup lang="ts">
 import { useHead } from '@unhead/vue'
-import {
-  NAlert,
-  NButton,
-  NCard,
-  NEmpty,
-  NGrid,
-  NGridItem,
-  NPopconfirm,
-  NSpace,
-  NTable,
-  NTag,
-  useMessage,
-} from 'naive-ui'
+import { Alert, Button, Card, Empty, Grid, GridItem, Message, Popconfirm, Space, Table, TableColumn, Tag } from '@arco-design/web-vue'
 import { computed, onMounted, shallowRef, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -36,7 +24,6 @@ interface TokenGroup {
   items: TokenRecord[]
 }
 
-const message = useMessage()
 const route = useRoute()
 const tokens = shallowRef<TokenRecord[]>([])
 const pendingActionKey = shallowRef('')
@@ -90,7 +77,7 @@ async function loadTokens() {
   }
   catch (error) {
     loadError.value = error instanceof ApiError ? error.message : '加载令牌失败'
-    message.error(loadError.value)
+    Message.error(loadError.value)
   }
 }
 
@@ -105,11 +92,11 @@ async function handleRevokeToken(token: TokenRecord) {
       await revokeRefreshToken(token.id)
     }
 
-    message.success(`已吊销${token.token_kind === 'access' ? ' access token' : ' refresh token'}`)
+    Message.success(`已吊销${token.token_kind === 'access' ? ' access token' : ' refresh token'}`)
     await loadTokens()
   }
   catch (error) {
-    message.error(error instanceof ApiError ? error.message : '吊销令牌失败')
+    Message.error(error instanceof ApiError ? error.message : '吊销令牌失败')
   }
   finally {
     pendingActionKey.value = ''
@@ -121,11 +108,11 @@ async function handleRevokeClient(group: TokenGroup) {
 
   try {
     await revokeClientTokens(group.clientId)
-    message.success('该应用的令牌已全部吊销')
+    Message.success('该应用的令牌已全部吊销')
     await loadTokens()
   }
   catch (error) {
-    message.error(error instanceof ApiError ? error.message : '批量吊销失败')
+    Message.error(error instanceof ApiError ? error.message : '批量吊销失败')
   }
   finally {
     pendingActionKey.value = ''
@@ -159,113 +146,102 @@ function isActionPending(actionKey: string) {
         <h1 class="page-title">{{ manageAll ? '令牌管理' : '令牌' }}</h1>
         <p class="page-subtitle">{{ manageAll ? '查看全部令牌并执行吊销操作。' : '查看并吊销您当前账号的令牌。' }}</p>
       </div>
-      <NButton tertiary @click="loadTokens">刷新列表</NButton>
+      <Button type="text" @click="loadTokens">刷新列表</Button>
     </header>
 
-    <NAlert v-if="loadError" type="error" :show-icon="false">
+    <Alert v-if="loadError" type="error" :show-icon="false">
       <div class="page-alert">
         <span>{{ loadError }}</span>
-        <NButton size="small" tertiary @click="loadTokens">重试</NButton>
+        <Button size="small" type="text" @click="loadTokens">重试</Button>
       </div>
-    </NAlert>
+    </Alert>
 
-    <NGrid cols="1 s:2 l:4" responsive="screen" :x-gap="16" :y-gap="16">
-      <NGridItem>
+    <Grid :cols="{xs:1,sm:2,lg:4}" :col-gap="16" :row-gap="16">
+      <GridItem>
         <StatPanel label="活跃令牌" :value="stats.active" detail="仍可用于访问或续签的有效记录。" />
-      </NGridItem>
-      <NGridItem>
+      </GridItem>
+      <GridItem>
         <StatPanel label="Refresh Token" :value="stats.refresh" detail="可用于续签 access token 的长期凭证。" />
-      </NGridItem>
-      <NGridItem>
+      </GridItem>
+      <GridItem>
         <StatPanel label="已吊销" :value="stats.revoked" detail="被手动撤销，不再允许继续使用。" />
-      </NGridItem>
-      <NGridItem>
+      </GridItem>
+      <GridItem>
         <StatPanel label="已过期" :value="stats.expired" detail="自然过期但仍保留审计记录。" />
-      </NGridItem>
-    </NGrid>
+      </GridItem>
+    </Grid>
 
     <div class="token-stack">
-      <NCard v-if="groups.length === 0">
-        <NEmpty description="暂无令牌记录。" />
-      </NCard>
+      <Card v-if="groups.length === 0">
+        <Empty description="暂无令牌记录。" />
+      </Card>
 
-      <NCard v-for="group in groups" :key="group.clientId">
+      <Card v-for="group in groups" :key="group.clientId">
         <div class="token-group-header">
           <div>
             <h2 class="token-group-title">{{ group.clientName }}</h2>
             <p class="token-group-meta mono">{{ group.clientId }}</p>
           </div>
 
-          <NSpace align="center" :wrap="true">
-            <NTag round type="success">{{ group.activeCount }} active</NTag>
-            <NPopconfirm @positive-click="handleRevokeClient(group)">
-              <template #trigger>
-                <NButton
-                  tertiary
-                  type="error"
-                  :disabled="group.activeCount === 0"
-                  :loading="isActionPending(`client:${group.clientId}`)"
-                >
-                  吊销该应用全部令牌
-                </NButton>
+          <Space align="center" wrap>
+            <Tag round color="green">{{ group.activeCount }} active</Tag>
+            <Popconfirm @ok="handleRevokeClient(group)">
+              <Button
+                type="text"
+                status="danger"
+                :disabled="group.activeCount === 0"
+                :loading="isActionPending(`client:${group.clientId}`)"
+              >
+                吊销该应用全部令牌
+              </Button>
+              <template #content>
+                这会吊销该应用下当前账号的所有 access / refresh token。
               </template>
-              这会吊销该应用下当前账号的所有 access / refresh token。
-            </NPopconfirm>
-          </NSpace>
+            </Popconfirm>
+          </Space>
         </div>
 
-        <div class="table-scroll">
-          <NTable striped>
-            <thead>
-              <tr>
-                <th v-if="manageAll">所属用户</th>
-                <th>类型</th>
-                <th>状态</th>
-                <th>Scope</th>
-                <th>签发时间</th>
-                <th>过期时间</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="token in group.items" :key="token.id">
-                <td v-if="manageAll">{{ token.owner_username || '-' }}</td>
-                <td>
-                  <NTag size="small" :type="tokenKindType(token.token_kind)">
-                    {{ token.token_kind }}
-                  </NTag>
-                </td>
-                <td>
-                  <NTag size="small" :type="tokenTagType(token.status)">
-                    {{ token.status }}
-                  </NTag>
-                </td>
-                <td>
-                  <span class="mono">{{ token.scope || '-' }}</span>
-                </td>
-                <td>{{ token.created_at }}</td>
-                <td>{{ token.expires_at }}</td>
-                <td>
-                  <NPopconfirm @positive-click="handleRevokeToken(token)">
-                    <template #trigger>
-                      <NButton
-                        size="small"
-                        tertiary
-                        type="error"
-                        :disabled="token.status !== 'active'"
-                        :loading="isActionPending(`${token.token_kind}:${token.id}`)"
-                      >
-                        吊销
-                      </NButton>
+          <Table :data="group.items" stripe row-key="id">
+            <template #columns>
+              <TableColumn v-if="manageAll" data-index="owner_username" title="所属用户" />
+              <TableColumn data-index="token_kind" title="类型">
+                <template #cell="{ record }">
+                  <Tag size="small" :color="tokenKindType(record.token_kind)">{{ record.token_kind }}</Tag>
+                </template>
+              </TableColumn>
+              <TableColumn data-index="status" title="状态">
+                <template #cell="{ record }">
+                  <Tag size="small" :color="tokenTagType(record.status)">{{ record.status }}</Tag>
+                </template>
+              </TableColumn>
+              <TableColumn data-index="scope" title="Scope">
+                <template #cell="{ record }">
+                  <span class="mono">{{ record.scope || '-' }}</span>
+                </template>
+              </TableColumn>
+              <TableColumn data-index="created_at" title="签发时间" />
+              <TableColumn data-index="expires_at" title="过期时间" />
+              <TableColumn title="操作">
+                <template #cell="{ record }">
+                  <Popconfirm @ok="handleRevokeToken(record)">
+                    <Button
+                      size="small"
+                      type="text"
+                      status="danger"
+                      :disabled="record.status !== 'active'"
+                      :loading="isActionPending(`${record.token_kind}:${record.id}`)"
+                    >
+                      吊销
+                    </Button>
+                    <template #content>
+                      吊销后该令牌将立即失效。
                     </template>
-                    吊销后该令牌将立即失效。
-                  </NPopconfirm>
-                </td>
-              </tr>
-            </tbody>
-          </NTable>
-        </div>
-      </NCard>
+                  </Popconfirm>
+                </template>
+              </TableColumn>
+            </template>
+          </Table>
+      </Card>
     </div>
   </section>
 </template>
@@ -292,10 +268,6 @@ function isActionPending(actionKey: string) {
 .token-group-meta {
   margin: 8px 0 0;
   color: var(--color-charcoal);
-}
-
-.table-scroll {
-  overflow-x: auto;
 }
 
 .page-alert {

@@ -1,25 +1,25 @@
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* Resend Design Tokens */
-  --color-canvas: #000000;
-  --color-surface-card: #0d0d11;
-  --color-surface-elevated: #141418;
-  --color-surface-deep: #08080b;
-  --color-ink: #fcfdff;
-  --color-body: rgba(252, 253, 255, 0.92);
-  --color-charcoal: rgba(252, 253, 255, 0.78);
-  --color-mute: #b0b2b5;
-  --color-ash: #9a9ea0;
-  --color-stone: #555a5d;
-  --color-hairline: rgba(255, 255, 255, 0.1);
-  --color-hairline-strong: rgba(255, 255, 255, 0.2);
-  --color-divider-soft: rgba(255, 255, 255, 0.06);
-  --color-accent-blue: #3b9eff;
-  --color-accent-green: #11ff99;
-  --color-accent-red: #ff2047;
-  --color-accent-orange: #ff801f;
-  --color-accent-yellow: #ffc53d;
+  /* Design Tokens — Light Mode */
+  --color-canvas: #f5f5f7;
+  --color-surface-card: #ffffff;
+  --color-surface-elevated: #eaeaea;
+  --color-surface-deep: #e0e0e0;
+  --color-ink: #0d0d11;
+  --color-body: rgba(13, 13, 17, 0.88);
+  --color-charcoal: rgba(13, 13, 17, 0.65);
+  --color-mute: #6b6b73;
+  --color-ash: #8a8a92;
+  --color-stone: #c0c0c4;
+  --color-hairline: rgba(0, 0, 0, 0.08);
+  --color-hairline-strong: rgba(0, 0, 0, 0.15);
+  --color-divider-soft: rgba(0, 0, 0, 0.04);
+  --color-accent-blue: #2563eb;
+  --color-accent-green: #059669;
+  --color-accent-red: #dc2626;
+  --color-accent-orange: #ea580c;
+  --color-accent-yellow: #ca8a04;
   --radius-md: 6px;
   --radius-lg: 10px;
 }
@@ -97,6 +97,10 @@ a:hover {
   gap: 12px;
 }
 
+.page-stack .arco-table {
+  margin-top: 4px;
+}
+
 .table-scroll {
   overflow-x: auto;
 }
@@ -124,3 +128,163 @@ a:hover {
     font-size: 22px;
   }
 }
+
+.arco-btn {
+  border-radius: var(--radius-md);
+}
+
+.arco-btn-primary {
+  color: #ffffff;
+  background: var(--color-accent-blue);
+  border-color: var(--color-accent-blue);
+}
+
+.arco-btn-primary:hover,
+.arco-btn-primary:focus {
+  color: #ffffff;
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.arco-btn-secondary,
+.arco-btn-text {
+  color: var(--color-ink);
+  border-color: var(--color-hairline-strong);
+  background: transparent;
+}
+
+.arco-btn-secondary:hover,
+.arco-btn-text:hover {
+  color: var(--color-ink);
+  border-color: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.arco-btn-status-danger,
+.arco-btn-status-danger.arco-btn-text {
+  color: var(--color-accent-red);
+}
+
+.arco-layout,
+.arco-layout-sider,
+.arco-layout-header,
+.arco-layout-content {
+  color: var(--color-body);
+  background: var(--color-canvas);
+}
+
+.arco-layout-sider,
+.arco-layout-header {
+  border-color: var(--color-hairline);
+}
+
+.arco-card,
+.arco-modal,
+.arco-drawer,
+.arco-popover-popup-content {
+  color: var(--color-body);
+  border-color: var(--color-hairline-strong);
+  background: var(--color-surface-card);
+}
+
+.arco-card-header,
+.arco-drawer-header,
+.arco-modal-header {
+  border-color: var(--color-hairline);
+}
+
+.arco-card-header-title,
+.arco-drawer-title,
+.arco-modal-title {
+  color: var(--color-ink);
+}
+
+.arco-input-wrapper,
+.arco-select-view-single,
+.arco-textarea-wrapper {
+  color: var(--color-ink);
+  border-color: var(--color-hairline-strong);
+  background: var(--color-surface-card);
+}
+
+.arco-input-wrapper:hover,
+.arco-select-view-single:hover,
+.arco-textarea-wrapper:hover {
+  border-color: rgba(0, 0, 0, 0.3);
+}
+
+.arco-input,
+.arco-textarea {
+  color: var(--color-ink);
+}
+
+.arco-input::placeholder,
+.arco-textarea::placeholder {
+  color: rgba(13, 13, 17, 0.35);
+}
+
+.arco-form-item-label-col > label,
+.arco-typography,
+.arco-descriptions-item-label,
+.arco-descriptions-item-value {
+  color: var(--color-body);
+}
+
+.arco-typography-secondary {
+  color: var(--color-charcoal);
+}
+
+.arco-alert {
+  border-color: var(--color-hairline-strong);
+  background: var(--color-surface-card);
+}
+
+.arco-alert-content,
+.arco-alert-title {
+  color: var(--color-body);
+}
+
+.arco-table,
+.arco-table-tr,
+.arco-table-th,
+.arco-table-td {
+  color: var(--color-body);
+  border-color: var(--color-hairline);
+  background: var(--color-surface-card);
+}
+
+.arco-table-th {
+  color: var(--color-charcoal);
+  background: var(--color-surface-elevated);
+}
+
+.arco-table-tr:hover .arco-table-td {
+  background: var(--color-hairline);
+}
+
+.arco-menu {
+  color: var(--color-charcoal);
+  background: transparent;
+}
+
+.arco-menu-item,
+.arco-menu-group-title {
+  color: var(--color-charcoal);
+}
+
+.arco-menu-selected,
+.arco-menu-item:hover {
+  color: var(--color-ink);
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.arco-tag {
+  border-color: var(--color-hairline-strong);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+
+.arco-empty-description {
+  color: var(--color-charcoal);
+}
+

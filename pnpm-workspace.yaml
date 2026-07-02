@@ -1,2 +1,4 @@
 packages:
   - web
+minimumReleaseAgeExclude:
+  - '@lucide/vue@1.23.0'

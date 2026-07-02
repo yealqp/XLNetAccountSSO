@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import {
-  NButton,
-  NDrawer,
-  NDrawerContent,
-  NForm,
-  NFormItem,
-  NInput,
-  NSelect,
-  NSpace,
-  useMessage,
-} from 'naive-ui'
+  Button,
+  Drawer,
+  Form,
+  FormItem,
+  Input,
+  Message,
+  Select,
+  Space,
+} from '@arco-design/web-vue'
 import { computed, reactive, watch } from 'vue'
 
 import { createUser, updateUser } from '@/api/admin'
@@ -24,7 +23,6 @@ const props = defineProps<Props>()
 const emit = defineEmits<{ saved: [user: UserRecord] }>()
 const show = defineModel<boolean>('show', { required: true })
 const isSaving = defineModel<boolean>('saving', { default: false })
-const message = useMessage()
 const { width } = useViewport()
 const drawerWidth = computed(() => Math.min(460, Math.max(280, width.value - 16)))
 
@@ -70,7 +68,7 @@ async function handleSubmit() {
       ? await updateUser(props.initialUser.id, payload)
       : await createUser(payload)
 
-    message.success(isEditing.value ? '用户已更新' : '用户已创建')
+    Message.success(isEditing.value ? '用户已更新' : '用户已创建')
     emit('saved', result)
     show.value = false
   }
@@ -81,50 +79,48 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <NDrawer v-model:show="show" :width="drawerWidth">
-    <NDrawerContent :title="isEditing ? '编辑用户' : '新建用户'" closable>
-      <NForm label-placement="top">
-        <NFormItem label="用户名">
-          <NInput v-model:value="formState.username" />
-        </NFormItem>
+  <Drawer v-model:visible="show" :width="drawerWidth" :title="isEditing ? '编辑用户' : '新建用户'" closable>
+      <Form :model="formState" layout="vertical">
+        <FormItem label="用户名">
+          <Input v-model="formState.username" />
+        </FormItem>
 
-        <NFormItem :label="isEditing ? '重置密码' : '初始密码'">
-          <NInput v-model:value="formState.password" type="password" show-password-on="click" />
-        </NFormItem>
+        <FormItem :label="isEditing ? '重置密码' : '初始密码'">
+          <Input v-model="formState.password" type="password" />
+        </FormItem>
 
-        <NFormItem label="邮箱">
-          <NInput v-model:value="formState.email" />
-        </NFormItem>
+        <FormItem label="邮箱">
+          <Input v-model="formState.email" />
+        </FormItem>
 
-        <NFormItem label="角色">
-          <NSelect
-            v-model:value="formState.role"
+        <FormItem label="角色">
+          <Select
+            v-model="formState.role"
             :options="[
               { label: 'User', value: 'user' },
               { label: 'Admin', value: 'admin' },
             ]"
           />
-        </NFormItem>
+        </FormItem>
 
-        <NFormItem label="状态">
-          <NSelect
-            v-model:value="formState.status"
+        <FormItem label="状态">
+          <Select
+            v-model="formState.status"
             :options="[
               { label: 'Active', value: 'active' },
               { label: 'Disabled', value: 'disabled' },
             ]"
           />
-        </NFormItem>
-      </NForm>
+        </FormItem>
+      </Form>
 
       <template #footer>
-        <NSpace justify="end">
-          <NButton @click="show = false">取消</NButton>
-          <NButton type="primary" :loading="isSaving" @click="handleSubmit">
+        <Space justify="end">
+          <Button @click="show = false">取消</Button>
+          <Button type="primary" :loading="isSaving" @click="handleSubmit">
             {{ isEditing ? '保存修改' : '创建用户' }}
-          </NButton>
-        </NSpace>
+          </Button>
+        </Space>
       </template>
-    </NDrawerContent>
-  </NDrawer>
+      </Drawer>
 </template>

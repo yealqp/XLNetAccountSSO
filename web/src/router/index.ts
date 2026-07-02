@@ -42,7 +42,7 @@ const router = createRouter({
       ],
     },
     {
-      path: '/admin',
+      path: '/dashboard',
       component: AdminLayout,
       meta: { requiresAuth: true },
       children: [
@@ -52,7 +52,7 @@ const router = createRouter({
           component: () => import('@/components/admin/DashboardPage.vue'),
         },
         {
-          path: 'manage/overview',
+          path: 'admin/overview',
           name: 'manage-overview',
           meta: { requiresAdmin: true, manageScope: 'all' },
           component: () => import('@/components/admin/DashboardPage.vue'),
@@ -68,25 +68,25 @@ const router = createRouter({
           component: () => import('@/components/admin/TokensPage.vue'),
         },
         {
-          path: 'manage/users',
+          path: 'admin/users',
           name: 'manage-users',
           meta: { requiresAdmin: true },
           component: () => import('@/components/admin/UsersPage.vue'),
         },
         {
-          path: 'manage/applications',
+          path: 'admin/applications',
           name: 'manage-applications',
           meta: { requiresAdmin: true, manageScope: 'all' },
           component: () => import('@/components/admin/ClientsPage.vue'),
         },
         {
-          path: 'manage/tokens',
+          path: 'admin/tokens',
           name: 'manage-tokens',
           meta: { requiresAdmin: true, manageScope: 'all' },
           component: () => import('@/components/admin/TokensPage.vue'),
         },
         {
-          path: 'manage/system-settings',
+          path: 'admin/system-settings',
           name: 'system-settings',
           meta: { requiresAdmin: true },
           component: () => import('@/components/admin/SystemSettingsPage.vue'),
@@ -111,6 +111,12 @@ router.beforeEach(async (to) => {
   const setupStore = useSetupStore(pinia)
   const platformStore = usePlatformStore(pinia)
 
+  // Landing page is fully public — render instantly without blocking on API calls
+  if (to.name === 'landing') {
+    setupStore.ensureStatus().catch(() => {})
+    return true
+  }
+
   const initialized = await setupStore.ensureStatus()
 
   if (!initialized && to.name !== 'setup') {
@@ -127,22 +133,16 @@ router.beforeEach(async (to) => {
     return { name: 'login' }
   }
 
-  if (initialized && to.name === 'landing') {
-    await sessionStore.ensureSession()
-    if (sessionStore.authenticated) {
-      return { name: 'overview' }
-    }
-  }
-
-  if (initialized && (to.name === 'login' || to.name === 'register' || to.name === 'authorize')) {
+  if (initialized && to.name === 'register') {
     await platformStore.ensureLoaded().catch(() => {})
-  }
-
-  if (to.name === 'register' && !platformStore.allowRegistration) {
-    return {
-      name: 'login',
-      query: to.query.next === undefined ? undefined : { next: to.query.next },
+    if (!platformStore.allowRegistration) {
+      return {
+        name: 'login',
+        query: to.query.next === undefined ? undefined : { next: to.query.next },
+      }
     }
+  } else if (initialized && (to.name === 'login' || to.name === 'authorize')) {
+    platformStore.ensureLoaded().catch(() => {})
   }
 
   if (to.meta.requiresAuth) {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useHead } from '@unhead/vue'
-import { NAlert, NAvatar, NButton, NCard, NForm, NFormItem, NInput, NSpace, NSwitch, NText, NUpload, useMessage } from 'naive-ui'
-import type { UploadCustomRequestOptions } from 'naive-ui'
+import { Alert, Avatar, Button, Card, Form, FormItem, Input, Message, Space, Switch, TypographyText as Text, Upload } from '@arco-design/web-vue'
+import type { RequestOption, UploadRequest } from '@arco-design/web-vue'
 import { computed, onBeforeUnmount, onMounted, reactive, shallowRef } from 'vue'
 
 useHead({ title: '系统设置 — XLNetAccount' })
@@ -11,7 +11,6 @@ import { sendTestEmail, uploadWebIcon } from '@/api/settings'
 import { resolveServerUrl } from '@/config/endpoints'
 import { usePlatformStore } from '@/stores/platform'
 
-const message = useMessage()
 const platformStore = usePlatformStore()
 
 const isSaving = shallowRef(false)
@@ -58,35 +57,34 @@ async function loadSettings() {
   }
   catch (error) {
     loadError.value = error instanceof ApiError ? error.message : '加载系统设置失败'
-    message.error(loadError.value)
+    Message.error(loadError.value)
   }
 }
 
-async function handleIconUpload(options: UploadCustomRequestOptions) {
-  const file = options.file.file
+function handleIconUpload(options: RequestOption) {
+  const file = options.fileItem.file
   if (!(file instanceof File)) {
-    options.onError?.()
-    message.error('无法读取上传文件')
-    return
+    options.onError()
+    Message.error('无法读取上传文件')
+    return {} as UploadRequest
   }
 
   isUploadingIcon.value = true
   setLocalPreview(file)
 
-  try {
-    const result = await uploadWebIcon(file)
+  uploadWebIcon(file).then((result) => {
     formState.webIconUrl = result.web_icon_url
     previewLoadFailed.value = false
-    message.success('网页图标已上传')
-    options.onFinish?.()
-  }
-  catch (error) {
-    message.error(error instanceof ApiError ? error.message : '上传网页图标失败')
-    options.onError?.()
-  }
-  finally {
+    Message.success('网页图标已上传')
+    options.onSuccess()
+  }).catch((error) => {
+    Message.error(error instanceof ApiError ? error.message : '上传网页图标失败')
+    options.onError()
+  }).finally(() => {
     isUploadingIcon.value = false
-  }
+  })
+
+  return {} as UploadRequest
 }
 
 async function handleSubmit() {
@@ -98,11 +96,11 @@ async function handleSubmit() {
       allow_registration: formState.allowRegistration,
       web_icon_url: formState.webIconUrl,
     })
-    message.success('系统设置已保存')
+    Message.success('系统设置已保存')
   }
   catch (error) {
     loadError.value = error instanceof ApiError ? error.message : '保存系统设置失败'
-    message.error(loadError.value)
+    Message.error(loadError.value)
   }
   finally {
     isSaving.value = false
@@ -114,11 +112,11 @@ async function handleSendTestEmail() {
   loadError.value = ''
   try {
     await sendTestEmail({ to: formState.testEmail })
-    message.success('测试邮件已发送')
+    Message.success('测试邮件已发送')
   }
   catch (error) {
     loadError.value = error instanceof ApiError ? error.message : '发送测试邮件失败'
-    message.error(loadError.value)
+    Message.error(loadError.value)
   }
   finally {
     isSendingTestEmail.value = false
@@ -148,44 +146,44 @@ function resetLocalPreview() {
       </div>
     </header>
 
-    <NAlert v-if="loadError" type="error" :show-icon="false">
+    <Alert v-if="loadError" type="error" :show-icon="false">
       {{ loadError }}
-    </NAlert>
+    </Alert>
 
-    <NCard title="平台设置">
-      <NForm label-placement="top" @submit.prevent="handleSubmit">
-        <NFormItem label="平台名称">
-          <NInput v-model:value="formState.platformName" placeholder="请输入平台名称" />
-        </NFormItem>
+    <Card title="平台设置">
+      <Form :model="formState" layout="vertical" @submit="handleSubmit">
+        <FormItem label="平台名称">
+          <Input v-model="formState.platformName" placeholder="请输入平台名称" />
+        </FormItem>
 
-        <NFormItem label="开放注册">
-          <NSwitch v-model:value="formState.allowRegistration" />
-        </NFormItem>
+        <FormItem label="开放注册">
+          <Switch v-model="formState.allowRegistration" />
+        </FormItem>
 
-        <NFormItem label="邮件服务">
-          <NText v-if="smtpConfigured" type="success">已配置</NText>
-          <NText v-else type="warning">未配置（请在环境变量中设置 SMTP_HOST / SMTP_USER / SMTP_PWD）</NText>
-        </NFormItem>
+        <FormItem label="邮件服务">
+          <Text v-if="smtpConfigured" type="success">已配置</Text>
+          <Text v-else type="warning">未配置（请在环境变量中设置 SMTP_HOST / SMTP_USER / SMTP_PWD）</Text>
+        </FormItem>
 
-        <NFormItem label="人机验证 (CAPTCHA)">
-          <NText v-if="capConfigured" type="success">已配置</NText>
-          <NText v-else type="warning">未配置（请在环境变量中设置 CAP_API_ENDPOINT / CAP_SITE_KEY / CAP_SECRET_KEY）</NText>
-        </NFormItem>
+        <FormItem label="人机验证 (CAPTCHA)">
+          <Text v-if="capConfigured" type="success">已配置</Text>
+          <Text v-else type="warning">未配置（请在环境变量中设置 CAP_API_ENDPOINT / CAP_SITE_KEY / CAP_SECRET_KEY）</Text>
+        </FormItem>
 
-        <NFormItem label="网页图标地址">
-          <NSpace vertical :size="10" style="width: 100%;">
-            <NInput v-model:value="formState.webIconUrl" placeholder="https://example.com/favicon.ico" />
-            <NUpload
+        <FormItem label="网页图标地址">
+          <Space vertical :size="10" style="width: 100%;">
+            <Input v-model="formState.webIconUrl" placeholder="https://example.com/favicon.ico" />
+            <Upload
               accept="image/*"
               :show-file-list="false"
               :custom-request="handleIconUpload"
             >
-              <NButton secondary :loading="isUploadingIcon">上传网页图标</NButton>
-            </NUpload>
-          </NSpace>
-        </NFormItem>
+              <Button type="secondary" :loading="isUploadingIcon">上传网页图标</Button>
+            </Upload>
+          </Space>
+        </FormItem>
 
-        <NFormItem label="图标预览">
+        <FormItem label="图标预览">
           <div class="icon-preview">
             <div class="icon-preview-avatar">
               <img
@@ -195,31 +193,31 @@ function resetLocalPreview() {
                 class="icon-preview-image"
                 @error="previewLoadFailed = true"
               >
-              <NAvatar v-else :size="48" :round="false" class="icon-preview-fallback">
+              <Avatar v-else :size="48" :round="false" class="icon-preview-fallback">
                 X
-              </NAvatar>
+              </Avatar>
             </div>
             <div class="icon-preview-meta">
               <strong>{{ formState.platformName || '网页图标预览' }}</strong>
-              <NText depth="3">保存后会同步更新站点 favicon。</NText>
+              <Text type="secondary">保存后会同步更新站点 favicon。</Text>
             </div>
           </div>
-        </NFormItem>
+        </FormItem>
 
-        <NFormItem label="测试收件邮箱">
-          <NInput v-model:value="formState.testEmail" placeholder="test@example.com" />
-        </NFormItem>
+        <FormItem label="测试收件邮箱">
+          <Input v-model="formState.testEmail" placeholder="test@example.com" />
+        </FormItem>
 
-        <NSpace>
-          <NButton type="primary" attr-type="submit" :loading="isSaving">
+        <Space>
+          <Button type="primary" html-type="submit" :loading="isSaving">
             保存
-          </NButton>
-          <NButton secondary :loading="isSendingTestEmail" @click="handleSendTestEmail">
+          </Button>
+          <Button type="secondary" :loading="isSendingTestEmail" @click="handleSendTestEmail">
             发送测试邮件
-          </NButton>
-        </NSpace>
-      </NForm>
-    </NCard>
+          </Button>
+        </Space>
+      </Form>
+    </Card>
   </section>
 </template>
 

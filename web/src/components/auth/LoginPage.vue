@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useHead } from '@unhead/vue'
-import { NAlert, NButton, NForm, NFormItem, NInput, useMessage } from 'naive-ui'
+import { Alert, Button, Form, FormItem, Input, Message, VerificationCode } from '@arco-design/web-vue'
 import { computed, reactive, shallowRef } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
@@ -15,7 +15,6 @@ import { describePasskeyError, getPasskeyCredential, getPasskeySupportMessage } 
 
 const route = useRoute()
 const router = useRouter()
-const message = useMessage()
 const platformStore = usePlatformStore()
 const sessionStore = useSessionStore()
 void platformStore.ensureLoaded().catch(() => {})
@@ -52,17 +51,17 @@ async function handleSubmit() {
     if (result.type === 'totp') {
       showTotpStep.value = true
       totpSessionId.value = result.sessionId
-      message.info('请输入两步验证码')
+      Message.info('请输入两步验证码')
       return
     }
 
-    message.success('登录成功')
+    Message.success('登录成功')
     await router.replace(resolveNextTarget(route.query.next))
   }
   catch (error) {
     const fallbackMessage = error instanceof ApiError ? error.message : '登录失败，请稍后重试'
     submitError.value = fallbackMessage
-    message.error(fallbackMessage)
+    Message.error(fallbackMessage)
   }
   finally {
     isSubmitting.value = false
@@ -79,13 +78,13 @@ async function handleTotpVerify() {
       code: totpCode.value,
     })
 
-    message.success('登录成功')
+    Message.success('登录成功')
     await router.replace(resolveNextTarget(route.query.next))
   }
   catch (error) {
     const fallbackMessage = error instanceof ApiError ? error.message : '验证失败'
     submitError.value = fallbackMessage
-    message.error(fallbackMessage)
+    Message.error(fallbackMessage)
   }
   finally {
     isTotpSubmitting.value = false
@@ -112,13 +111,13 @@ async function handlePasskeySignIn() {
       credential,
     })
 
-    message.success('登录成功')
+    Message.success('登录成功')
     await router.replace(resolveNextTarget(route.query.next))
   }
   catch (error) {
     const fallbackMessage = error instanceof ApiError ? error.message : describePasskeyError(error)
     submitError.value = fallbackMessage
-    message.error(fallbackMessage)
+    Message.error(fallbackMessage)
   }
   finally {
     isPasskeySubmitting.value = false
@@ -135,48 +134,43 @@ async function handlePasskeySignIn() {
     </div>
 
     <template v-if="!showTotpStep">
-      <NForm label-placement="top" class="auth-form" @submit.prevent="handleSubmit">
-        <NFormItem label="邮箱或用户名">
-          <NInput v-model:value="formState.username" clearable placeholder="邮箱或用户名" size="large" @update:value="submitError = ''" />
-        </NFormItem>
+      <Form :model="formState" layout="vertical" class="auth-form" @submit="handleSubmit">
+        <FormItem label="邮箱或用户名">
+          <Input v-model="formState.username" clearable placeholder="邮箱或用户名" size="large" @input="submitError = ''" />
+        </FormItem>
 
-        <NFormItem label="密码">
-          <NInput
-            v-model:value="formState.password"
+        <FormItem label="密码">
+          <Input
+            v-model="formState.password"
             type="password"
-            show-password-on="mousedown"
-            placeholder="密码"
+                        placeholder="密码"
             size="large"
-            @update:value="submitError = ''"
+            @input="submitError = ''"
           />
-        </NFormItem>
+        </FormItem>
 
-        <NAlert v-if="submitError" type="error" :show-icon="false">
-          {{ submitError }}
-        </NAlert>
-
-        <NAlert v-if="passkeySupportMessage" type="warning" :show-icon="false">
+        <Alert v-if="passkeySupportMessage" type="warning" :show-icon="false">
           {{ passkeySupportMessage }}
-        </NAlert>
+        </Alert>
 
         <div class="auth-action-stack">
-          <NButton type="primary" size="large" block :loading="isSubmitting" :disabled="isPasskeySubmitting" attr-type="submit">
+          <Button type="primary" size="large" block :loading="isSubmitting" :disabled="isPasskeySubmitting" html-type="submit">
             登录
-          </NButton>
-          <NButton
-            secondary
+          </Button>
+          <Button
+            type="secondary"
             size="large"
             block
-            attr-type="button"
+            html-type="button"
             data-testid="passkey-login-button"
             :loading="isPasskeySubmitting"
             :disabled="Boolean(passkeySupportMessage) || isSubmitting"
             @click="handlePasskeySignIn"
           >
             使用通行密钥登录
-          </NButton>
+          </Button>
         </div>
-      </NForm>
+      </Form>
 
       <div v-if="showRegister" class="auth-link-row">
         <RouterLink :to="registerLink">没有账号？立即注册</RouterLink>
@@ -184,30 +178,28 @@ async function handlePasskeySignIn() {
     </template>
 
     <template v-else>
-      <NForm label-placement="top" class="auth-form" @submit.prevent="handleTotpVerify">
-        <NFormItem label="验证码">
-          <NInput
-            v-model:value="totpCode"
-            placeholder="6 位动态码"
-            size="large"
-            maxlength="6"
-            @update:value="submitError = ''"
-          />
-        </NFormItem>
-
-        <NAlert v-if="submitError" type="error" :show-icon="false">
-          {{ submitError }}
-        </NAlert>
+      <Form :model="{code: totpCode}" layout="vertical" class="auth-form" @submit="handleTotpVerify">
+        <FormItem label="验证码">
+          <div class="totp-code-wrapper">
+            <VerificationCode
+              v-model="totpCode"
+              :length="6"
+              size="large"
+              @change="submitError = ''"
+              @finish="handleTotpVerify"
+            />
+          </div>
+        </FormItem>
 
         <div class="auth-action-stack">
-          <NButton type="primary" size="large" block :loading="isTotpSubmitting" attr-type="submit">
+          <Button type="primary" size="large" block :loading="isTotpSubmitting" html-type="submit">
             验证
-          </NButton>
-          <NButton secondary size="large" block attr-type="button" @click="handleBackToLogin">
+          </Button>
+          <Button type="secondary" size="large" block html-type="button" @click="handleBackToLogin">
             返回
-          </NButton>
+          </Button>
         </div>
-      </NForm>
+      </Form>
     </template>
   </div>
 </template>
@@ -260,5 +252,11 @@ async function handlePasskeySignIn() {
 
 .auth-link-row a {
   color: var(--color-accent-blue);
+}
+
+.totp-code-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 4px 0;
 }
 </style>

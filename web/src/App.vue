@@ -1,30 +1,14 @@
 <script setup lang="ts">
-import {
-  NConfigProvider,
-  NDialogProvider,
-  NGlobalStyle,
-  NMessageProvider,
-  NNotificationProvider,
-  darkTheme,
-} from 'naive-ui'
+import { ConfigProvider } from '@arco-design/web-vue'
 import { RouterView } from 'vue-router'
-
-import { darkThemeOverrides } from '@/config/theme'
 </script>
 
 <template>
-  <NConfigProvider :theme="darkTheme" :theme-overrides="darkThemeOverrides">
-    <NDialogProvider>
-      <NNotificationProvider>
-        <NMessageProvider>
-          <NGlobalStyle />
-          <div class="app-container">
-            <RouterView />
-          </div>
-        </NMessageProvider>
-      </NNotificationProvider>
-    </NDialogProvider>
-  </NConfigProvider>
+  <ConfigProvider>
+    <div class="app-container">
+      <RouterView />
+    </div>
+  </ConfigProvider>
 </template>
 
 <style scoped>

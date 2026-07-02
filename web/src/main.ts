@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import { createHead } from '@unhead/vue/client'
 
+import '@arco-design/web-vue/dist/arco.css'
 import App from './App.vue'
 import './assets/main.css'
 import router from './router'

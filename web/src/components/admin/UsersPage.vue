@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useHead } from '@unhead/vue'
-import { NAlert, NButton, NCard, NEmpty, NPopconfirm, NSpace, NTable, NTag, useMessage } from 'naive-ui'
+import { Alert, Button, Card, Message, Popconfirm, Space, Table, TableColumn, Tag } from '@arco-design/web-vue'
 import { onMounted, shallowRef } from 'vue'
 
 useHead({ title: '用户管理 — XLNetAccount' })
@@ -11,7 +11,6 @@ import UserFormDrawer from '@/components/admin/UserFormDrawer.vue'
 import { useSessionStore } from '@/stores/session'
 import type { UserRecord } from '@/types/api'
 
-const message = useMessage()
 const sessionStore = useSessionStore()
 
 const users = shallowRef<UserRecord[]>([])
@@ -30,7 +29,7 @@ async function loadUsers() {
   }
   catch (error) {
     loadError.value = error instanceof ApiError ? error.message : '加载用户失败'
-    message.error(loadError.value)
+    Message.error(loadError.value)
   }
 }
 
@@ -51,11 +50,11 @@ async function handleSaved() {
 async function handleDelete(user: UserRecord) {
   try {
     await deleteUser(user.id)
-    message.success('用户已删除')
+    Message.success('用户已删除')
     await loadUsers()
   }
   catch (error) {
-    message.error(error instanceof ApiError ? error.message : '删除用户失败')
+    Message.error(error instanceof ApiError ? error.message : '删除用户失败')
   }
 }
 
@@ -71,60 +70,55 @@ function isCurrentUser(user: UserRecord) {
         <h1 class="page-title">用户管理</h1>
         <p class="page-subtitle">维护账号、角色与状态。</p>
       </div>
-      <NButton type="primary" @click="openCreateDrawer">新建用户</NButton>
+      <Button type="primary" @click="openCreateDrawer">新建用户</Button>
     </header>
 
-    <NAlert v-if="loadError" type="error" :show-icon="false">
+    <Alert v-if="loadError" type="error" :show-icon="false">
       <div class="page-alert">
         <span>{{ loadError }}</span>
-        <NButton size="small" tertiary @click="loadUsers">重试</NButton>
+        <Button size="small" type="text" @click="loadUsers">重试</Button>
       </div>
-    </NAlert>
+    </Alert>
 
-    <NCard>
-      <NEmpty v-if="users.length === 0" description="暂无用户。" />
-
-      <div v-else class="table-scroll">
-        <NTable striped>
-          <thead>
-            <tr>
-              <th>用户名</th>
-              <th>邮箱</th>
-              <th>角色</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="user in users" :key="user.id">
-              <td class="mono">{{ user.username }}</td>
-              <td>{{ user.email || '-' }}</td>
-              <td>
-                <NTag size="small" :type="user.role === 'admin' ? 'warning' : 'default'">
-                  {{ user.role }}
-                </NTag>
-              </td>
-              <td>
-                <NTag size="small" :type="user.status === 'active' ? 'success' : 'error'">
-                  {{ user.status }}
-                </NTag>
-              </td>
-              <td>
-                <NSpace>
-                  <NButton size="small" tertiary @click="openEditDrawer(user)">编辑</NButton>
-                  <NPopconfirm @positive-click="handleDelete(user)">
-                    <template #trigger>
-                      <NButton size="small" tertiary type="error" :disabled="isCurrentUser(user)">删除</NButton>
-                    </template>
+    <Card>
+      <Table :data="users" stripe row-key="id">
+        <template #columns>
+          <TableColumn data-index="username" title="用户名">
+            <template #cell="{ record }">
+              <span class="mono">{{ record.username }}</span>
+            </template>
+          </TableColumn>
+          <TableColumn data-index="email" title="邮箱">
+            <template #cell="{ record }">
+              {{ record.email || '-' }}
+            </template>
+          </TableColumn>
+          <TableColumn data-index="role" title="角色">
+            <template #cell="{ record }">
+              <Tag size="small" :color="record.role === 'admin' ? 'orange' : undefined">{{ record.role }}</Tag>
+            </template>
+          </TableColumn>
+          <TableColumn data-index="status" title="状态">
+            <template #cell="{ record }">
+              <Tag size="small" :color="record.status === 'active' ? 'green' : 'red'">{{ record.status }}</Tag>
+            </template>
+          </TableColumn>
+          <TableColumn title="操作">
+            <template #cell="{ record }">
+              <Space>
+                <Button size="small" type="text" @click="openEditDrawer(record)">编辑</Button>
+                <Popconfirm @ok="handleDelete(record)">
+                  <Button size="small" type="text" status="danger" :disabled="isCurrentUser(record)">删除</Button>
+                  <template #content>
                     删除后不可恢复，确认继续？
-                  </NPopconfirm>
-                </NSpace>
-              </td>
-            </tr>
-          </tbody>
-        </NTable>
-      </div>
-    </NCard>
+                  </template>
+                </Popconfirm>
+              </Space>
+            </template>
+          </TableColumn>
+        </template>
+      </Table>
+    </Card>
 
     <UserFormDrawer
       v-model:show="drawerVisible"

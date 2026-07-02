@@ -2,7 +2,7 @@
 import { useHead } from '@unhead/vue'
 import '@cap.js/widget'
 
-import { NAlert, NButton, NForm, NFormItem, NInput, NSpace, NText, useMessage } from 'naive-ui'
+import { Alert, Button, Form, FormItem, Input, Message, Space, TypographyText as Text } from '@arco-design/web-vue'
 import { computed, onBeforeUnmount, reactive, shallowRef } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
@@ -22,7 +22,6 @@ interface CapSolveEvent extends Event {
 
 const route = useRoute()
 const router = useRouter()
-const message = useMessage()
 const platformStore = usePlatformStore()
 const sessionStore = useSessionStore()
 
@@ -106,7 +105,7 @@ async function handleSendCode() {
 		})
 		codeSent.value = true
 		startResendCountdown(normalizedEmail.value, 60)
-		message.success('验证码已发送，请查收邮箱')
+		Message.success('验证码已发送，请查收邮箱')
 	}
 	catch (error) {
 		submitError.value = error instanceof ApiError ? error.message : '发送验证码失败'
@@ -114,7 +113,7 @@ async function handleSendCode() {
 		if (retryAfter > 0) {
 			startResendCountdown(normalizedEmail.value, retryAfter)
 		}
-		message.error(submitError.value)
+		Message.error(submitError.value)
 	}
 	finally {
 		isSendingCode.value = false
@@ -145,12 +144,12 @@ async function handleSubmit() {
 			username: formState.username,
 			password: formState.password,
 		})
-		message.success('注册成功')
+		Message.success('注册成功')
 		await router.replace(resolveNextTarget(route.query.next))
 	}
 	catch (error) {
 		submitError.value = error instanceof ApiError ? error.message : '注册失败，请稍后重试'
-		message.error(submitError.value)
+		Message.error(submitError.value)
 	}
 	finally {
 		isSubmitting.value = false
@@ -210,16 +209,16 @@ function extractRetryAfter(message: string) {
       <p class="auth-panel-subtitle">使用邮箱验证码创建账号。</p>
     </div>
 
-    <NForm label-placement="top" class="auth-form" @submit.prevent="handleSubmit">
-      <NFormItem label="邮箱">
-        <NInput v-model:value="formState.email" clearable placeholder="邮箱" size="large" @update:value="submitError = ''" />
-      </NFormItem>
+    <Form :model="formState" layout="vertical" class="auth-form" @submit="handleSubmit">
+      <FormItem label="邮箱">
+        <Input v-model="formState.email" clearable placeholder="邮箱" size="large" @input="submitError = ''" />
+      </FormItem>
 
-      <NFormItem label="用户名">
-        <NInput v-model:value="formState.username" clearable placeholder="用户名" size="large" @update:value="submitError = ''" />
-      </NFormItem>
+      <FormItem label="用户名">
+        <Input v-model="formState.username" clearable placeholder="用户名" size="large" @input="submitError = ''" />
+      </FormItem>
 
-      <NFormItem v-if="capEnabled" label="人机验证">
+      <FormItem v-if="capEnabled" label="人机验证">
         <div class="cap-shell">
           <cap-widget
             :data-cap-api-endpoint="platformStore.capWidgetEndpoint"
@@ -237,29 +236,29 @@ function extractRetryAfter(message: string) {
             @error="handleCapError"
           />
         </div>
-        <NText v-if="capError" depth="3">{{ capError }}</NText>
-      </NFormItem>
+        <Text v-if="capError" depth="3">{{ capError }}</Text>
+      </FormItem>
 
-      <NFormItem label="验证码">
-        <NSpace style="width: 100%;" :wrap="false">
-          <NInput v-model:value="formState.code" placeholder="邮箱验证码" size="large" @update:value="submitError = ''" />
-          <NButton secondary :loading="isSendingCode" :disabled="sendCodeDisabled" @click="handleSendCode">
+      <FormItem label="验证码">
+        <Space style="width: 100%;">
+          <Input v-model="formState.code" placeholder="邮箱验证码" size="large" @input="submitError = ''" />
+          <Button type="secondary" :loading="isSendingCode" :disabled="sendCodeDisabled" @click="handleSendCode">
             {{ sendCodeText }}
-          </NButton>
-        </NSpace>
-      </NFormItem>
+          </Button>
+        </Space>
+      </FormItem>
 
-		<NFormItem label="密码">
-        <NInput v-model:value="formState.password" type="password" show-password-on="mousedown" placeholder="密码" size="large" @update:value="submitError = ''" />
-      </NFormItem>
+		<FormItem label="密码">
+        <Input v-model="formState.password" type="password"  placeholder="密码" size="large" @input="submitError = ''" />
+      </FormItem>
 
-      <NFormItem label="确认密码">
-        <NInput v-model:value="formState.confirmPassword" type="password" show-password-on="mousedown" placeholder="再次输入密码" size="large" @update:value="submitError = ''" />
-      </NFormItem>
+      <FormItem label="确认密码">
+        <Input v-model="formState.confirmPassword" type="password"  placeholder="再次输入密码" size="large" @input="submitError = ''" />
+      </FormItem>
 
-      <NAlert type="info" :show-icon="false" class="password-hint">
+      <Alert type="info" :show-icon="false" class="password-hint">
         {{ passwordHint }}
-      </NAlert>
+      </Alert>
 
       <div class="password-rule-list">
         <div v-for="rule in passwordChecks" :key="rule.label" class="password-rule" :class="{ passed: rule.passed }">
@@ -272,14 +271,10 @@ function extractRetryAfter(message: string) {
         </div>
       </div>
 
-      <NAlert v-if="submitError" type="error" :show-icon="false">
-        {{ submitError }}
-      </NAlert>
-
-      <NButton type="primary" size="large" block :loading="isSubmitting" attr-type="submit" :disabled="!passwordValid || passwordMismatch">
+      <Button type="primary" size="large" long :loading="isSubmitting" html-type="submit" :disabled="!passwordValid || passwordMismatch">
         注册
-      </NButton>
-    </NForm>
+      </Button>
+    </Form>
 
     <div class="auth-link-row">
       <RouterLink :to="loginLink">已有账号？去登录</RouterLink>
@@ -335,7 +330,7 @@ function extractRetryAfter(message: string) {
 	padding: 10px 12px;
 	border: 1px solid var(--color-hairline);
 	border-radius: 8px;
-	background: rgba(255, 255, 255, 0.02);
+	background: rgba(0, 0, 0, 0.02);
 }
 
 .password-rule {
@@ -370,7 +365,7 @@ function extractRetryAfter(message: string) {
   --cap-checkbox-background: #0f131a;
   --cap-spinner-color: #4da3ff;
   --cap-spinner-background-color: #243042;
-  display: block;
+  display: long;
 }
 
 .cap-shell :deep(cap-widget)::part(attribution) {

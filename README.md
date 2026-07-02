@@ -11,7 +11,7 @@ An OAuth2-compatible SSO platform built with Vue 3 (Naive UI) + Go Fiber + MySQL
 
 ### Backend
 
-1. Start MySQL: `docker compose up -d mysql`
+1. Start a MySQL 8.0 instance on `127.0.0.1:3306` with database `sso_platform`
 2. Copy env: `copy server\.env.example server\.env`
 3. Fetch deps: `go mod tidy` inside `server/`
 4. Run: `go run ./cmd/sso` inside `server/`
@@ -32,20 +32,3 @@ An OAuth2-compatible SSO platform built with Vue 3 (Naive UI) + Go Fiber + MySQL
 - The system no longer seeds a default admin account.
 - On first boot, open the frontend and complete the initialization flow.
 - The first administrator is created from `/api/setup/initialize` through the setup page.
-
-## Docker deployment
-
-### Services
-
-- `mysql`: MySQL 8.0 with a persisted volume
-- `server`: Go Fiber OAuth2 authorization server on `http://localhost:8080`
-
-### Start
-
-- Full stack: `docker compose up --build -d`
-- Just server: `docker compose up --build -d server`
-
-### Docker defaults
-
-- MySQL database: `sso_platform`
-- MySQL app user: `sso_app / sso_app`

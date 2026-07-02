@@ -5,7 +5,7 @@ export function resolveNextTarget(nextValue: unknown) {
 		return next
 	}
 
-	return '/admin'
+	return '/dashboard'
 }
 
 export function buildNextQuery(nextValue: unknown) {

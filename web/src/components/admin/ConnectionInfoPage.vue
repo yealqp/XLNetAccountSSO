@@ -1,22 +1,11 @@
 <script setup lang="ts">
 import { useHead } from '@unhead/vue'
-import {
-  NButton,
-  NCard,
-  NCode,
-  NDescriptions,
-  NDescriptionsItem,
-  NSpace,
-  NTag,
-  NText,
-  useMessage,
-} from 'naive-ui'
+import { Button, Card, Descriptions, DescriptionsItem, Message, Space, Tag, TypographyText as Text } from '@arco-design/web-vue'
 
 useHead({ title: '连接信息 — XLNetAccount' })
 
 import { getConnectionInfo } from '@/config/endpoints'
 
-const message = useMessage()
 const connectionInfo = getConnectionInfo()
 
 const oauthItems = [
@@ -84,10 +73,10 @@ const userInfoExample = `{
 async function copyUrl(value: string) {
   try {
     await navigator.clipboard.writeText(value)
-    message.success('已复制地址')
+    Message.success('已复制地址')
   }
   catch {
-    message.error('复制失败，请手动复制')
+    Message.error('复制失败，请手动复制')
   }
 }
 </script>
@@ -99,56 +88,68 @@ async function copyUrl(value: string) {
         <h1 class="page-title">连接信息</h1>
         <p class="page-subtitle">OAuth2 / OIDC 固定地址与用户信息响应示例。</p>
       </div>
-      <NTag round type="info">{{ connectionInfo.baseUrl }}</NTag>
+      <Tag round color="blue">{{ connectionInfo.baseUrl }}</Tag>
     </header>
 
-    <NCard title="OAuth2 地址">
-      <NDescriptions label-placement="top" :column="1" bordered>
-        <NDescriptionsItem v-for="item in oauthItems" :key="item.label" :label="item.label">
-          <NSpace vertical :size="8">
-            <NSpace align="center" :wrap="true">
-              <NTag size="small" :type="item.method === 'GET' ? 'info' : 'warning'">
+    <Card title="OAuth2 地址">
+      <Descriptions layout="vertical" :column="1" bordered>
+        <DescriptionsItem v-for="item in oauthItems" :key="item.label" :label="item.label">
+          <Space vertical :size="8">
+            <Space align="center" wrap>
+              <Tag size="small" :color="item.method === 'GET' ? 'blue' : 'orange'">
                 {{ item.method }}
-              </NTag>
+              </Tag>
               <span class="mono endpoint-url">{{ item.url }}</span>
-              <NButton size="small" tertiary @click="copyUrl(item.url)">
+              <Button size="small" type="text" @click="copyUrl(item.url)">
                 复制
-              </NButton>
-            </NSpace>
-            <NText depth="3">{{ item.description }}</NText>
-          </NSpace>
-        </NDescriptionsItem>
-      </NDescriptions>
-    </NCard>
+              </Button>
+            </Space>
+            <Text type="secondary">{{ item.description }}</Text>
+          </Space>
+        </DescriptionsItem>
+      </Descriptions>
+    </Card>
 
-    <NCard title="OIDC 地址">
-      <NDescriptions label-placement="top" :column="1" bordered>
-        <NDescriptionsItem v-for="item in oidcItems" :key="item.label" :label="item.label">
-          <NSpace vertical :size="8">
-            <NSpace align="center" :wrap="true">
-              <NTag size="small" type="success">{{ item.method }}</NTag>
+    <Card title="OIDC 地址">
+      <Descriptions layout="vertical" :column="1" bordered>
+        <DescriptionsItem v-for="item in oidcItems" :key="item.label" :label="item.label">
+          <Space vertical :size="8">
+            <Space align="center" wrap>
+              <Tag size="small" color="green">{{ item.method }}</Tag>
               <span class="mono endpoint-url">{{ item.url }}</span>
-              <NButton size="small" tertiary @click="copyUrl(item.url)">
+              <Button size="small" type="text" @click="copyUrl(item.url)">
                 复制
-              </NButton>
-            </NSpace>
-            <NText depth="3">{{ item.description }}</NText>
-          </NSpace>
-        </NDescriptionsItem>
-      </NDescriptions>
-    </NCard>
+              </Button>
+            </Space>
+            <Text type="secondary">{{ item.description }}</Text>
+          </Space>
+        </DescriptionsItem>
+      </Descriptions>
+    </Card>
 
-    <NCard title="userinfo 响应示例">
-      <NSpace vertical :size="10">
-        <NText depth="3">返回字段会根据授权 scope 决定，下面是包含 `profile email roles` 时的示例。</NText>
-        <NCode :code="userInfoExample" language="json" word-wrap />
-      </NSpace>
-    </NCard>
+    <Card title="userinfo 响应示例">
+      <Space vertical :size="10">
+        <Text type="secondary">返回字段会根据授权 scope 决定，下面是包含 `profile email roles` 时的示例。</Text>
+        <pre class="code-block"><code>{{ userInfoExample }}</code></pre>
+      </Space>
+    </Card>
   </section>
 </template>
 
 <style scoped>
 .endpoint-url {
+  overflow-wrap: anywhere;
+}
+
+.code-block {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-elevated);
+  color: var(--color-ink);
+  overflow: auto;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 </style>

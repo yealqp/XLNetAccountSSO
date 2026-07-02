@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useHead } from '@unhead/vue'
-import { NAlert, NButton, NForm, NFormItem, NInput, useMessage } from 'naive-ui'
+import { Button, Form, FormItem, Input, Message } from '@arco-design/web-vue'
 import { reactive, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -14,7 +14,6 @@ import { resolveNextTarget } from '@/utils/authNext'
 
 const route = useRoute()
 const router = useRouter()
-const message = useMessage()
 const platformStore = usePlatformStore()
 const sessionStore = useSessionStore()
 const setupStore = useSetupStore()
@@ -49,12 +48,12 @@ async function handleSubmit() {
 			username: formState.username,
 			password: formState.password,
 		})
-		message.success('初始化完成')
+		Message.success('初始化完成')
 		await router.replace(resolveNextTarget(route.query.next))
 	}
 	catch (error) {
 		submitError.value = error instanceof ApiError ? error.message : '初始化失败，请稍后重试'
-		message.error(submitError.value)
+		Message.error(submitError.value)
 	}
 	finally {
 		isSubmitting.value = false
@@ -71,45 +70,39 @@ async function handleSubmit() {
       <p class="auth-panel-subtitle">首次使用前需要先创建平台管理员账号。</p>
     </div>
 
-    <NForm label-placement="top" class="auth-form" @submit.prevent="handleSubmit">
-      <NFormItem label="用户名">
-        <NInput v-model:value="formState.username" clearable placeholder="管理员用户名" size="large" @update:value="submitError = ''" />
-      </NFormItem>
+    <Form :model="formState" layout="vertical" class="auth-form" @submit="handleSubmit">
+      <FormItem label="用户名">
+        <Input v-model="formState.username" clearable placeholder="管理员用户名" size="large" @input="submitError = ''" />
+      </FormItem>
 
-		<NFormItem label="邮箱">
-		  <NInput v-model:value="formState.email" clearable placeholder="邮箱" size="large" @update:value="submitError = ''" />
-		</NFormItem>
+		<FormItem label="邮箱">
+		  <Input v-model="formState.email" clearable placeholder="邮箱" size="large" @input="submitError = ''" />
+		</FormItem>
 
-      <NFormItem label="密码">
-        <NInput
-          v-model:value="formState.password"
+      <FormItem label="密码">
+        <Input
+          v-model="formState.password"
           type="password"
-          show-password-on="mousedown"
-          placeholder="密码"
+                    placeholder="密码"
           size="large"
-          @update:value="submitError = ''"
+          @input="submitError = ''"
         />
-      </NFormItem>
+      </FormItem>
 
-      <NFormItem label="确认密码">
-        <NInput
-          v-model:value="formState.confirmPassword"
+      <FormItem label="确认密码">
+        <Input
+          v-model="formState.confirmPassword"
           type="password"
-          show-password-on="mousedown"
-          placeholder="再次输入密码"
+                    placeholder="再次输入密码"
           size="large"
-          @update:value="submitError = ''"
+          @input="submitError = ''"
         />
-      </NFormItem>
+      </FormItem>
 
-      <NAlert v-if="submitError" type="error" :show-icon="false">
-        {{ submitError }}
-      </NAlert>
-
-      <NButton type="primary" size="large" block :loading="isSubmitting" attr-type="submit">
+      <Button type="primary" size="large" long :loading="isSubmitting" html-type="submit">
         完成初始化
-      </NButton>
-    </NForm>
+      </Button>
+    </Form>
   </div>
 </template>
 

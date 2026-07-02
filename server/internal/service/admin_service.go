@@ -280,7 +280,7 @@ func (service *AdminService) CreateClient(ctx context.Context, actor *model.User
 	}
 	clientID := strings.TrimSpace(input.ClientID)
 	if clientID == "" {
-		clientID = fmt.Sprintf("client_%s", security.NewID()[:12])
+		clientID = security.NewClientID()
 	}
 	existing, err := service.store.FindClientByClientID(ctx, clientID)
 	if err != nil {

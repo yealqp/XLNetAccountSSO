@@ -51,3 +51,15 @@ func randomHex(size int) string {
 	}
 	return hex.EncodeToString(bytes)
 }
+
+func NewClientID() string {
+	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+	bytes := make([]byte, 16)
+	if _, err := rand.Read(bytes); err != nil {
+		panic(err)
+	}
+	for i := range bytes {
+		bytes[i] = charset[int(bytes[i])%len(charset)]
+	}
+	return fmt.Sprintf("%s-%s-%s-%s", bytes[:4], bytes[4:8], bytes[8:12], bytes[12:])
+}

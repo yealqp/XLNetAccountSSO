@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NLayout, NLayoutContent } from 'naive-ui'
+import { Layout, LayoutContent } from '@arco-design/web-vue'
 import { RouterView } from 'vue-router'
 
 import { usePlatformStore } from '@/stores/platform'
@@ -9,8 +9,8 @@ void platformStore.ensureLoaded().catch(() => {})
 </script>
 
 <template>
-  <NLayout class="page-shell auth-layout">
-    <NLayoutContent class="auth-content">
+  <Layout class="page-shell auth-layout">
+    <LayoutContent class="auth-content">
       <div class="auth-shell page-container">
         <header class="auth-brand">
           <p class="auth-eyebrow">{{ platformStore.displayName }}</p>
@@ -24,8 +24,8 @@ void platformStore.ensureLoaded().catch(() => {})
           </div>
         </section>
       </div>
-    </NLayoutContent>
-  </NLayout>
+    </LayoutContent>
+  </Layout>
 </template>
 
 <style scoped>
@@ -33,7 +33,7 @@ void platformStore.ensureLoaded().catch(() => {})
   background: var(--color-canvas);
 }
 
-.auth-layout :deep(.n-layout-scroll-container) {
+.auth-layout :deep(.arco-layout-content) {
   min-height: 100%;
 }
 

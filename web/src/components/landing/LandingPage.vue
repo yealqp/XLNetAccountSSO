@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NButton, NIcon } from 'naive-ui'
+import { Button } from '@arco-design/web-vue'
 import { useHead } from '@unhead/vue'
 import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
@@ -197,8 +197,7 @@ onUnmounted(() => {
           <span class="brand-name">{{ platformName }}</span>
         </div>
         <nav class="landing-nav">
-          <NButton quaternary @click="router.push({ name: 'login' })">登录</NButton>
-          <NButton type="primary" @click="router.push({ name: 'register' })">注册</NButton>
+          <Button type="primary" @click="router.push({ name: 'overview' })">控制台</Button>
         </nav>
       </div>
     </header>
@@ -247,19 +246,19 @@ onUnmounted(() => {
             </p>
 
             <div class="hero-buttons">
-              <NButton type="primary" size="large" class="btn-primary" @click="router.push({ name: 'login' })">
-                <template #icon><NIcon><LogIn /></NIcon></template>
+              <Button type="primary" size="large" class="btn-primary" @click="router.push({ name: 'login' })">
+                <LogIn :size="18" style="vertical-align: sub;" />
                 立即登录
-              </NButton>
-              <NButton secondary size="large" class="btn-secondary" @click="router.push({ name: 'register' })">
+              </Button>
+              <Button type="secondary" size="large" class="btn-secondary" @click="router.push({ name: 'register' })">
                 创建账号
-              </NButton>
+              </Button>
             </div>
           </div>
         </div>
 
         <div class="scroll-indicator">
-          <NIcon size="24"><ChevronsDown /></NIcon>
+          <ChevronsDown :size="24" />
         </div>
       </section>
 
@@ -275,7 +274,7 @@ onUnmounted(() => {
             <div v-for="feature in features" :key="feature.title" class="feature-card-wrapper">
               <div class="glass-card feature-card">
                 <div class="feature-icon-box">
-                  <NIcon size="22"><component :is="feature.icon" /></NIcon>
+                  <component :is="feature.icon" :size="22" />
                 </div>
                 <h3 class="feature-title">{{ feature.title }}</h3>
                 <p class="feature-desc">{{ feature.description }}</p>
@@ -296,7 +295,7 @@ onUnmounted(() => {
             <div v-for="stat in stats" :key="stat.label" class="stat-card-wrapper">
               <div class="glass-card stat-card">
                 <div class="stat-icon-box">
-                  <NIcon size="28"><component :is="stat.icon" /></NIcon>
+                  <component :is="stat.icon" :size="28" />
                 </div>
                 <div class="stat-value">{{ stat.value }}</div>
                 <div class="stat-label">{{ stat.label }}</div>
@@ -317,8 +316,8 @@ onUnmounted(() => {
             </h2>
             <p class="cta-desc">创建账号或集成您的应用，几分钟即可完成。</p>
             <div class="cta-buttons">
-              <NButton type="primary" size="large" class="btn-primary" @click="router.push({ name: 'register' })">创建账号</NButton>
-              <NButton secondary size="large" class="btn-secondary" @click="router.push({ name: 'login' })">登录</NButton>
+              <Button type="primary" size="large" class="btn-primary" @click="router.push({ name: 'register' })">创建账号</Button>
+              <Button type="secondary" size="large" class="btn-secondary" @click="router.push({ name: 'login' })">登录</Button>
             </div>
           </div>
         </div>
@@ -356,7 +355,7 @@ onUnmounted(() => {
   min-height: 100dvh;
   overflow-y: auto;
   scrollbar-gutter: stable;
-  background: #030712;
+  background: #fafafa;
 }
 
 /* ========================================
@@ -368,9 +367,9 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   z-index: 50;
-  background: rgba(3, 7, 18, 0.7);
+  background: rgba(250, 250, 250, 0.7);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .header-inner {
@@ -396,8 +395,8 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border-radius: 6px;
-  background: rgba(45, 212, 191, 0.18);
-  color: #2dd4bf;
+  background: rgba(45, 212, 191, 0.15);
+  color: #0d9488;
   font-weight: 700;
   font-size: 15px;
 }
@@ -445,14 +444,14 @@ onUnmounted(() => {
 .hero-gradient {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(13, 148, 136, 0.12), transparent 40%, rgba(59, 130, 246, 0.08));
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.08), transparent 40%, rgba(59, 130, 246, 0.06));
 }
 
 .glow-sphere {
   position: absolute;
   border-radius: 50%;
   filter: blur(80px);
-  opacity: 0.1;
+  opacity: 0.08;
   will-change: transform;
 }
 
@@ -515,7 +514,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(0, 0, 0, 0.55);
 }
 
 .status-dot {
@@ -525,14 +524,14 @@ onUnmounted(() => {
 }
 
 .dot-teal {
-  background: #2dd4bf;
-  box-shadow: 0 0 8px rgba(45, 212, 191, 0.5);
+  background: #14b8a6;
+  box-shadow: 0 0 8px rgba(20, 184, 166, 0.4);
   animation: pulse-dot 2s ease-in-out infinite;
 }
 
 .dot-blue {
-  background: #60a5fa;
-  box-shadow: 0 0 8px rgba(96, 165, 250, 0.5);
+  background: #3b82f6;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
   animation: pulse-dot 2s ease-in-out infinite 0.5s;
 }
 
@@ -547,10 +546,11 @@ onUnmounted(() => {
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.08;
+  color: #0d0d11;
 }
 
 .title-gradient {
-  background: linear-gradient(135deg, #2dd4bf, #60a5fa, #c084fc);
+  background: linear-gradient(135deg, #0d9488, #2563eb, #7c3aed);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -561,11 +561,11 @@ onUnmounted(() => {
   margin: 20px auto 0;
   font-size: clamp(15px, 1.4vw, 18px);
   line-height: 1.7;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(0, 0, 0, 0.5);
 }
 
 .hero-desc .text-accent {
-  color: #2dd4bf;
+  color: #0d9488;
   font-weight: 600;
 }
 
@@ -586,7 +586,7 @@ onUnmounted(() => {
   padding: 0 28px;
   font-size: 15px;
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(45, 212, 191, 0.15);
+  box-shadow: 0 8px 24px rgba(13, 148, 136, 0.15);
 }
 
 .hero-buttons .btn-secondary {
@@ -603,7 +603,7 @@ onUnmounted(() => {
   justify-content: center;
   z-index: 1;
   animation: bounce-down 2s ease-in-out infinite;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(0, 0, 0, 0.25);
 }
 
 @keyframes bounce-down {
@@ -616,7 +616,7 @@ onUnmounted(() => {
    ======================================== */
 .features-section {
   padding: 80px 24px 100px;
-  background: linear-gradient(180deg, #030712 0%, #0f172a 100%);
+  background: linear-gradient(180deg, #fafafa 0%, #f1f5f9 100%);
 }
 
 .section-inner {
@@ -633,13 +633,13 @@ onUnmounted(() => {
   margin: 0;
   font-size: 30px;
   font-weight: 800;
-  color: #fcfdff;
+  color: #0d0d11;
 }
 
 .section-subtitle {
   margin: 10px 0 0;
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(0, 0, 0, 0.5);
 }
 
 .features-grid {
@@ -653,8 +653,8 @@ onUnmounted(() => {
 }
 
 .glass-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 14px;
   padding: 24px;
   transition: all 0.3s ease;
@@ -663,8 +663,8 @@ onUnmounted(() => {
 
 .glass-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(45, 212, 191, 0.2);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  border-color: rgba(13, 148, 136, 0.2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
 }
 
 .feature-icon-box {
@@ -674,8 +674,8 @@ onUnmounted(() => {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: rgba(45, 212, 191, 0.1);
-  color: #2dd4bf;
+  background: rgba(13, 148, 136, 0.1);
+  color: #0d9488;
   margin-bottom: 16px;
 }
 
@@ -683,14 +683,14 @@ onUnmounted(() => {
   margin: 0 0 8px;
   font-size: 16px;
   font-weight: 700;
-  color: #fcfdff;
+  color: #0d0d11;
 }
 
 .feature-desc {
   margin: 0;
   font-size: 14px;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(0, 0, 0, 0.5);
 }
 
 /* ========================================
@@ -698,7 +698,7 @@ onUnmounted(() => {
    ======================================== */
 .stats-section {
   padding: 80px 24px;
-  background: #030712;
+  background: #ffffff;
 }
 
 .stats-grid {
@@ -720,21 +720,21 @@ onUnmounted(() => {
   height: 56px;
   border-radius: 16px;
   margin: 0 auto 16px;
-  background: rgba(45, 212, 191, 0.1);
-  color: #2dd4bf;
+  background: rgba(13, 148, 136, 0.1);
+  color: #0d9488;
 }
 
 .stat-value {
   font-size: 32px;
   font-weight: 800;
-  color: #fcfdff;
+  color: #0d0d11;
   line-height: 1;
   margin-bottom: 6px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(0, 0, 0, 0.5);
 }
 
 /* ========================================
@@ -748,8 +748,8 @@ onUnmounted(() => {
   position: relative;
   overflow: hidden;
   padding: 80px 24px;
-  background: #0f172a;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-top: none;
 }
 
 .cta-glow {
@@ -764,13 +764,13 @@ onUnmounted(() => {
 .cta-glow.glow-1 {
   top: -120px;
   right: -80px;
-  background: rgba(45, 212, 191, 0.3);
+  background: rgba(45, 212, 191, 0.25);
 }
 
 .cta-glow.glow-2 {
   bottom: -140px;
   left: -60px;
-  background: rgba(59, 130, 246, 0.2);
+  background: rgba(59, 130, 246, 0.15);
 }
 
 .cta-body {
@@ -792,7 +792,7 @@ onUnmounted(() => {
 .cta-desc {
   margin: 14px 0 0;
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(252, 253, 255, 0.55);
 }
 
 .cta-buttons {
@@ -811,7 +811,7 @@ onUnmounted(() => {
   background: #fcfdff;
   color: #0f172a;
   font-weight: 700;
-  box-shadow: 0 8px 24px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
 .cta-buttons .btn-secondary {
@@ -823,9 +823,9 @@ onUnmounted(() => {
    Footer
    ======================================== */
 .landing-footer {
-  background: rgba(17, 24, 39, 0.5);
+  background: #f1f5f9;
   backdrop-filter: blur(8px);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .footer-inner {
@@ -846,13 +846,13 @@ onUnmounted(() => {
 .footer-copyright {
   margin: 0;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(0, 0, 0, 0.5);
 }
 
 .footer-meta {
   margin: 0;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(0, 0, 0, 0.35);
 }
 
 .footer-right {
@@ -863,13 +863,13 @@ onUnmounted(() => {
 
 .footer-icp {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(0, 0, 0, 0.45);
   text-decoration: none;
   transition: color 0.2s;
 }
 
 .footer-icp:hover {
-  color: #2dd4bf;
+  color: #0d9488;
 }
 
 /* ========================================

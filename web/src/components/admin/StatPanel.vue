@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { NCard, NText } from 'naive-ui'
+import { Card, TypographyText as Text } from '@arco-design/web-vue'
 
 interface Props {
   label: string
@@ -11,13 +11,13 @@ defineProps<Props>()
 </script>
 
 <template>
-  <NCard size="small" :bordered="true">
+  <Card size="small" :bordered="true">
     <div class="stat-panel">
-      <NText depth="3" class="stat-label">{{ label }}</NText>
+      <Text type="secondary" class="stat-label">{{ label }}</Text>
       <strong class="stat-value">{{ value }}</strong>
-      <NText depth="3" class="stat-detail">{{ detail }}</NText>
+      <Text type="secondary" class="stat-detail">{{ detail }}</Text>
     </div>
-  </NCard>
+  </Card>
 </template>
 
 <style scoped>

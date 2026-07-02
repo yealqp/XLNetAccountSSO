@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useHead } from '@unhead/vue'
-import { NButton, NCard, NDescriptions, NDescriptionsItem, NGrid, NGridItem, NIcon, NSpace, NTag, useMessage } from 'naive-ui'
+import { Alert, Button, Card, Descriptions, DescriptionsItem, Grid, GridItem, Message, Space, Tag } from '@arco-design/web-vue'
 import { computed, onMounted, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { AppWindow, Link2, Settings, Shield, WalletCards } from 'lucide-vue-next'
@@ -15,7 +15,6 @@ import type { OverviewStats } from '@/types/api'
 
 const overview = shallowRef<OverviewStats | null>(null)
 const sessionStore = useSessionStore()
-const message = useMessage()
 const loadError = shallowRef('')
 const router = useRouter()
 const route = useRoute()
@@ -53,7 +52,7 @@ async function loadOverview() {
   }
   catch (error) {
     loadError.value = error instanceof ApiError ? error.message : '加载概览失败'
-    message.error(loadError.value)
+    Message.error(loadError.value)
   }
 }
 </script>
@@ -66,52 +65,51 @@ async function loadOverview() {
           <h1 class="page-title">{{ welcomeTitle }}，{{ sessionStore.user?.username }}</h1>
           <p class="page-subtitle">{{ welcomeSubtitle }}</p>
         </div>
-        <NSpace wrap>
-          <NTag round type="info">/{{ sessionStore.user?.role ?? 'user' }}</NTag>
-          <NTag round>OAuth2</NTag>
-        </NSpace>
+        <Space wrap>
+          <Tag round>OAuth2</Tag>
+        </Space>
       </div>
-      <NDescriptions v-if="!manageAll" label-placement="top" :column="3" size="small" class="overview-profile">
-        <NDescriptionsItem label="用户 ID">
+      <Descriptions v-if="!manageAll" layout="vertical" :column="3" size="small" class="overview-profile">
+        <DescriptionsItem label="用户 ID">
           {{ sessionStore.user?.id ?? '-' }}
-        </NDescriptionsItem>
-        <NDescriptionsItem label="用户名">
+        </DescriptionsItem>
+        <DescriptionsItem label="用户名">
           {{ sessionStore.user?.username ?? '-' }}
-        </NDescriptionsItem>
-        <NDescriptionsItem label="绑定邮箱">
+        </DescriptionsItem>
+        <DescriptionsItem label="绑定邮箱">
           {{ sessionStore.user?.email || '-' }}
-        </NDescriptionsItem>
-      </NDescriptions>
+        </DescriptionsItem>
+      </Descriptions>
     </div>
 
-    <NAlert v-if="loadError" type="error" :show-icon="false">
+    <Alert v-if="loadError" type="error" :show-icon="false">
       <div class="page-alert">
         <span>{{ loadError }}</span>
-        <NButton size="small" tertiary @click="loadOverview">重试</NButton>
+        <Button size="small" type="text" @click="loadOverview">重试</Button>
       </div>
-    </NAlert>
+    </Alert>
 
-    <NGrid :cols="manageAll ? '1 s:2 l:4' : '1 s:2'" responsive="screen" :x-gap="12" :y-gap="12">
-      <NGridItem v-if="manageAll">
+    <Grid :cols="manageAll ? {xs:1,sm:2,lg:4} : {xs:1,sm:2}" :col-gap="12" :row-gap="12">
+      <GridItem v-if="manageAll">
         <StatPanel label="用户数" :value="overview?.users ?? '--'" detail="已创建账号总数" />
-      </NGridItem>
-      <NGridItem>
+      </GridItem>
+      <GridItem>
         <StatPanel
           :label="manageAll ? '客户端' : '应用数量'"
           :value="overview?.clients ?? '--'"
           :detail="manageAll ? '已注册 OAuth 应用' : '当前账号拥有的应用'"
         />
-      </NGridItem>
-      <NGridItem>
+      </GridItem>
+      <GridItem>
         <StatPanel
           :label="manageAll ? '有效令牌' : '令牌数量'"
           :value="overview?.access_tokens ?? '--'"
           :detail="manageAll ? '未撤销且未过期的 access token' : '当前账号的有效令牌'"
         />
-      </NGridItem>
-    </NGrid>
+      </GridItem>
+    </Grid>
 
-    <NCard size="small">
+    <Card size="small">
       <div class="quick-links">
         <button
           v-for="link in quickLinks"
@@ -119,11 +117,11 @@ async function loadOverview() {
           class="quick-link-btn"
           @click="router.push({ name: link.name })"
         >
-          <NIcon size="18"><component :is="link.icon" /></NIcon>
+          <component :is="link.icon" :size="18" style="vertical-align: middle;" />
           <span>{{ link.label }}</span>
         </button>
       </div>
-    </NCard>
+    </Card>
   </section>
 </template>
 
@@ -177,8 +175,8 @@ async function loadOverview() {
 }
 
 .quick-link-btn:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.2);
 }
 
 @media (max-width: 820px) {
